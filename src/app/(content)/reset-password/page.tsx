@@ -25,6 +25,7 @@ export default function ResetPasswordPage() {
     }
     const run = async () => {
       const supabase = getSupabase();
+      // PKCE flow: ?code= in the query string
       const code = new URLSearchParams(window.location.search).get('code');
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -32,6 +33,18 @@ export default function ResetPasswordPage() {
           setError('This reset link is invalid or expired — request a new one from the sign-in page.');
           return;
         }
+      }
+      // Implicit flow: #access_token= in the hash — the client auto-detects it
+      // on creation, but wait a tick for it to land in storage.
+      for (let i = 0; i < 10; i++) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setReady(true);
+          // Clean the token out of the URL so a refresh doesn't confuse anyone.
+          window.history.replaceState(null, '', window.location.pathname);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 200));
       }
       // With a valid recovery session (or an existing session), allow the change.
       const { data } = await supabase.auth.getSession();
