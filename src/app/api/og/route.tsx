@@ -191,7 +191,7 @@ export const GET = createZodRoute()
 
           {/* Branding */}
           <div tw="flex justify-end" style={{ marginTop: 6 * s }}>
-            <div tw="text-white font-bold text-xl">Relisten.net</div>
+            <div tw="text-white font-bold text-xl">The Lot</div>
           </div>
         </div>
       </div>,

@@ -31,13 +31,13 @@ export default function MainNavHeader({
           prefetch={false}
           onClick={onClickNav}
         >
-          RELISTEN
+          THE LOT
         </Link>
         <SecondaryNavBar artistSlugsToName={artistSlugsToName} />
       </Flex>
       <Flex className="h-full pr-2 font-medium lg:hidden" center>
         <Link href={indexOverride ?? '/'} prefetch={false}>
-          Re
+          TL
         </Link>
       </Flex>
     </>

@@ -3,18 +3,11 @@ const Chat = () => (
     <h1>Chat</h1>
 
     <p>
-      We have a chatroom for you to provide feedback, report bugs, or recommend a jam. Fukuoka Twist
+      A community chatroom for feedback, bug reports, and recommending a jam. Fukuoka Twist
       anyone?
     </p>
 
-    <a
-      className="button"
-      href="https://discordapp.com/invite/73fdDSS"
-      target="_blank"
-      rel="noreferrer"
-    >
-      Join us!
-    </a>
+    <p className="italic">Chat is coming soon.</p>
   </div>
 );
 

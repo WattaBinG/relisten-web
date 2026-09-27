@@ -62,7 +62,7 @@ const EmptyState = () => (
     </div>
     <h3 className="mb-2 text-lg font-medium text-gray-900">No recent activity</h3>
     <p className="max-w-sm text-gray-500">
-      Tracks will appear here as people listen to shows across the Relisten community.
+      Tracks will appear here as people listen to shows across The Lot community.
     </p>
   </motion.div>
 );

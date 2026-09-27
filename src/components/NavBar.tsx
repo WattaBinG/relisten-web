@@ -5,28 +5,11 @@ import Player from './Player';
 import * as Popover from '@/components/Popover';
 import RelistenAPI from '@/lib/RelistenAPI';
 import MainNavHeader from './MainNavHeader';
-import AndroidUpgradeNotification from './AndroidUpgradeNotification';
 import { MenuIcon } from 'lucide-react';
-import { headers } from 'next/headers';
-import { UAParser } from 'ua-parser-js';
 import { getIsInIframe } from '@/lib/isInIframe';
 
-export const getUserAgent = async () => {
-  const headersList = await headers();
-  const userAgent = headersList.get('user-agent');
-
-  if (!userAgent) return null;
-
-  return UAParser(userAgent);
-};
-
 export default async function NavBar() {
-  const [artists, userAgent, isInIframe] = await Promise.all([
-    RelistenAPI.fetchArtists(),
-    getUserAgent(),
-    getIsInIframe(),
-  ]);
-  const isAndroid = /android/i.test(userAgent?.ua || '');
+  const [artists, isInIframe] = await Promise.all([RelistenAPI.fetchArtists(), getIsInIframe()]);
 
   const artistSlugsToName = artists.reduce(
     (memo, next) => {
@@ -97,7 +80,6 @@ export default async function NavBar() {
           </div>
         </div>
       </div>
-      {isAndroid && <AndroidUpgradeNotification />}
     </>
   );
 }

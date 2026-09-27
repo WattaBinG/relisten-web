@@ -16,23 +16,24 @@ export default function EmbedHeader() {
 
     const { artistSlug, showDate, songSlug, source, activeTrack } = playback;
     const hasTrack = artistSlug && showDate && songSlug;
+    const origin = window.location.origin;
 
     if (hasTrack) {
       const { year, month, day } = splitShowDate(showDate);
       const t = formatTimeParam(activeTrack?.currentTime || 0);
-      const url = `https://relisten.net/${artistSlug}/${year}/${month}/${day}/${songSlug}?source=${source}&t=${t}`;
+      const url = `${origin}/${artistSlug}/${year}/${month}/${day}/${songSlug}?source=${source}&t=${t}`;
       window.open(url, '_blank');
       player.pause();
     } else {
-      window.open('https://relisten.net', '_blank');
+      window.open(origin, '_blank');
     }
   };
 
   return (
     <div className="relative z-10 border-b py-2 text-center text-xs font-semibold tracking-wider">
       POWERED BY{' '}
-      <a href="https://relisten.net" onClick={popout} className="hover:text-amber-700">
-        RELISTEN.NET
+      <a href={typeof window !== 'undefined' ? window.location.origin : '/'} onClick={popout} className="hover:text-amber-700">
+        THE LOT
       </a>{' '}
       &amp;{' '}
       <a
@@ -46,7 +47,7 @@ export default function EmbedHeader() {
       <div className="absolute top-1/2 right-1.5 -translate-y-1/2">
         <Tooltip content="Continue listening to this show" align="right" contentClassName="w-52">
           <a
-            href="https://relisten.net"
+            href={typeof window !== 'undefined' ? window.location.origin : '/'}
             onClick={popout}
             className="text-foreground-muted hover:text-amber-700"
             target="_blank"
