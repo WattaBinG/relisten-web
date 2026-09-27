@@ -1,6 +1,6 @@
 'use client';
 
-import type { Session } from '@supabase/supabase-js';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   createContext,
   useCallback,
@@ -30,6 +30,26 @@ export function normalizeUsername(raw: string): string {
     .slice(0, 20);
 }
 
+/**
+ * Reserved usernames (migration 004): obvious names the founder locked down.
+ * Counts as taken unless the reservation is claimed by this user.
+ * `userId` is null during pre-signup checks (no user yet) — then any
+ * reservation blocks the name.
+ */
+async function isUsernameReserved(
+  sb: SupabaseClient,
+  username: string,
+  userId: string | null
+): Promise<boolean> {
+  const { data } = await sb
+    .from('reserved_usernames')
+    .select('claimed_by')
+    .eq('username', username)
+    .maybeSingle();
+  if (!data) return false;
+  return userId == null || data.claimed_by !== userId;
+}
+
 /** Load the user's profile, creating it on first sight (covers the
  *  email-confirmation signup flow where no session existed at signup time). */
 async function ensureProfile(userId: string): Promise<ProfileRow | null> {
@@ -46,7 +66,7 @@ async function ensureProfile(userId: string): Promise<ProfileRow | null> {
     username = `user_${userId.slice(0, 8)}`;
   }
   const { data: taken } = await sb.from('profiles').select('id').eq('username', username).maybeSingle();
-  if (taken) {
+  if (taken || (await isUsernameReserved(sb, username, userId))) {
     username = `${username}_${Math.floor(1000 + Math.random() * 9000)}`;
   }
   const { data: created, error: createError } = await sb
@@ -156,6 +176,9 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
         .eq('username', clean)
         .maybeSingle();
       if (existing) return { error: 'That username is taken — try another.' };
+      if (await isUsernameReserved(sb, clean, null)) {
+        return { error: 'That username is taken — try another.' };
+      }
 
       localStorage.setItem(PENDING_USERNAME_KEY, clean);
       const { data, error } = await sb.auth.signUp({ email: email.trim(), password });
@@ -216,6 +239,9 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
         .eq('username', clean)
         .maybeSingle();
       if (existing && existing.id !== user.id) {
+        return { error: 'That username is taken — try another.' };
+      }
+      if (await isUsernameReserved(sb, clean, user.id)) {
         return { error: 'That username is taken — try another.' };
       }
       const { error } = await sb.from('profiles').update({ username: clean }).eq('id', user.id);
