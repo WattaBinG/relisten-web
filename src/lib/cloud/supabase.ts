@@ -38,6 +38,12 @@ export interface ProfileRow {
   /** Public HTTPS URL of the avatar image (null until the user uploads one). */
   avatar_url: string | null;
   created_at: string;
+  /** Birthday as YYYY-MM-DD (null until the user sets one). App-layer visibility only — see canSeeBirthday(). */
+  birthday: string | null;
+  /** When true, the birthday (month/day) is shown on the public profile. */
+  birthday_public: boolean;
+  /** When true, the user gets a birthday email. Used by the birthday cron (service_role). */
+  birthday_email_opt_in: boolean;
 }
 
 export interface FavoriteRow {

@@ -2,6 +2,10 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useCloudAuth } from '@/lib/cloud/auth';
+import { visibleBirthday } from '@/lib/cloud/birthday';
+import { getSupabase, isCloudEnabled } from '@/lib/cloud/supabase';
 import {
   useProfileByUsername,
   useUserCheckins,
@@ -25,6 +29,35 @@ export default function UserProfilePage() {
   const tapeCount = useUserTapeCount(profile?.id);
   const { tapes } = useUserTapes(profile?.id, 24);
   const { counts } = useFollow(profile?.id);
+
+  // Birthday (month/day) — only shown to the owner or when public.
+  const { session } = useCloudAuth();
+  const [birthdayLabel, setBirthdayLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!profile?.id || !isCloudEnabled) {
+      setBirthdayLabel(null);
+      return;
+    }
+    let cancelled = false;
+    getSupabase()
+      .from('profiles')
+      .select('id, birthday, birthday_public')
+      .eq('id', profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setBirthdayLabel(
+          visibleBirthday(session?.user?.id ?? null, {
+            id: data.id as string,
+            birthday: data.birthday as string | null,
+            birthday_public: data.birthday_public as boolean,
+          })
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, session?.user?.id]);
 
   if (notFound) {
     return (
@@ -55,6 +88,7 @@ export default function UserProfilePage() {
           <Avatar profile={profile} size={72} />
           <div>
             <h1 className="text-2xl font-bold">@{profile.username}</h1>
+            {birthdayLabel && <p className="mt-1 text-sm text-gray-600">🎂 {birthdayLabel}</p>}
             <div className="mt-1">
               <FollowCounts userId={profile.id} />
             </div>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { normalizeUsername, useCloudAuth } from '@/lib/cloud/auth';
+import { getMonthDay, updateBirthdaySettings } from '@/lib/cloud/birthday';
 import { isCloudEnabled, getSupabase } from '@/lib/cloud/supabase';
 
 function friendlyError(message: string): string {
@@ -345,6 +346,142 @@ function EmailSection() {
   );
 }
 
+function BirthdaySection() {
+  const { profile, refreshProfile, session } = useCloudAuth();
+  const [date, setDate] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [emailOptIn, setEmailOptIn] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  // Seed the form from the profile once it's loaded.
+  useEffect(() => {
+    if (initialized || !profile) return;
+    setDate(profile.birthday ?? '');
+    setIsPublic(profile.birthday_public ?? false);
+    setEmailOptIn(profile.birthday_email_opt_in ?? true);
+    setInitialized(true);
+  }, [profile, initialized]);
+
+  const save = async () => {
+    setError(null);
+    setNotice(null);
+    const clean = date.trim();
+    if (clean && !getMonthDay(clean)) {
+      setError('Pick a valid date.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const err = await updateBirthdaySettings({
+        birthday: clean || null,
+        birthday_public: isPublic,
+        birthday_email_opt_in: emailOptIn,
+      });
+      if (err) {
+        setError(err);
+      } else {
+        setNotice('Birthday saved.');
+        await refreshProfile();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleClass =
+    'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors';
+
+  return (
+    <section className={sectionClass}>
+      <h2 className={sectionTitleClass}>Birthday</h2>
+      <p className="mb-3 text-sm text-gray-600">
+        We will build you a birthday tape — every show your favorite bands played on your
+        birthday. 🎂
+      </p>
+      <label className="flex flex-col gap-1 text-sm">
+        Your birthday
+        <input
+          type="date"
+          className={inputClass}
+          value={date}
+          max="2026-12-31"
+          onChange={(e) => {
+            setDate(e.target.value);
+            setError(null);
+            setNotice(null);
+          }}
+        />
+      </label>
+      <div className="mt-4 flex flex-col gap-3">
+        <label className="flex cursor-pointer items-center justify-between gap-4 text-sm">
+          <span>
+            Show on my profile
+            <span className="block text-xs text-gray-500">
+              Others see &ldquo;🎂 January 26&rdquo; on your page. Off by default.
+            </span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isPublic}
+            onClick={() => setIsPublic((v) => !v)}
+            className={`${toggleClass} ${isPublic ? 'bg-black' : 'bg-gray-300'}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isPublic ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </label>
+        <label className="flex cursor-pointer items-center justify-between gap-4 text-sm">
+          <span>
+            Email me on my birthday
+            <span className="block text-xs text-gray-500">
+              A birthday note from The Lot on the day.
+            </span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={emailOptIn}
+            onClick={() => setEmailOptIn((v) => !v)}
+            className={`${toggleClass} ${emailOptIn ? 'bg-black' : 'bg-gray-300'}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                emailOptIn ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </label>
+      </div>
+      <div className="mt-4">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+          className="cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {busy ? 'Saving…' : 'Save birthday'}
+        </button>
+      </div>
+      {profile?.birthday && session?.user && (
+        <p className="mt-3 text-sm">
+          <Link href="/birthday-tape" className="underline">
+            View your birthday tape →
+          </Link>
+        </p>
+      )}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {notice && <p className="mt-3 text-sm text-green-700">{notice}</p>}
+    </section>
+  );
+}
+
 function SettingsMenu() {
   const { signOut } = useCloudAuth();
 
@@ -353,6 +490,7 @@ function SettingsMenu() {
       <AvatarSection />
       <UsernameSection />
       <EmailSection />
+      <BirthdaySection />
 
       <section className={sectionClass}>
         <h2 className={sectionTitleClass}>Password</h2>

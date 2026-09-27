@@ -5,6 +5,7 @@ import HomeHero from '@/components/home/HomeHero';
 import TrendingRow, { type TrendingBand } from '@/components/home/TrendingRow';
 import BrowseAllBands from '@/components/home/BrowseAllBands';
 import FriendsActivity from '@/components/community/FriendsActivity';
+import BirthdayTapePromo from '@/components/home/BirthdayTapePromo';
 import type { Artist } from '@/types';
 
 const weeklyPlays = (artist: Artist) => artist.popularity?.windows?.['7d']?.plays ?? 0;
@@ -46,6 +47,7 @@ export default async function HomePage() {
 
         <TrendingRow bands={trending} />
         <FriendsActivity />
+        <BirthdayTapePromo />
         <BrowseAllBands artists={artists} />
       </main>
     </div>
