@@ -9,9 +9,11 @@ import {
   useUserTopRatings,
   useFollow,
 } from '@/lib/cloud/community';
+import { useUserTapes, useUserTapeCount } from '@/lib/cloud/tapebox';
 import Avatar from '@/components/community/Avatar';
 import FollowButton, { FollowCounts } from '@/components/community/FollowButton';
 import Stars from '@/components/community/Stars';
+import TapeShelf from '@/components/tapebox/TapeShelf';
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -20,6 +22,8 @@ export default function UserProfilePage() {
   const checkinCount = useUserCheckinCount(profile?.id);
   const checkins = useUserCheckins(profile?.id, 10);
   const topRatings = useUserTopRatings(profile?.id, 5);
+  const tapeCount = useUserTapeCount(profile?.id);
+  const { tapes } = useUserTapes(profile?.id, 24);
   const { counts } = useFollow(profile?.id);
 
   if (notFound) {
@@ -67,7 +71,20 @@ export default function UserProfilePage() {
           <strong>{topRatings.length}</strong>{' '}
           <span className="text-gray-600">tapes loved</span>
         </span>
+        <span>
+          <strong>{tapeCount}</strong> <span className="text-gray-600">tapes dubbed</span>
+        </span>
       </div>
+
+      {tapes.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-base font-semibold">
+            📼 Tape Box{' '}
+            <span className="font-normal text-gray-500">({tapeCount})</span>
+          </h2>
+          <TapeShelf tapes={tapes} tapeWidth={220} />
+        </section>
+      )}
 
       {checkins.length > 0 && (
         <section className="mt-8">

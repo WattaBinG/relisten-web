@@ -14,6 +14,7 @@ import Avatar from './Avatar';
 import FollowButton from './FollowButton';
 import Stars from './Stars';
 import UserLink from './UserLink';
+import TapeBoxBlock from '../tapebox/TapeBoxBlock';
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - +new Date(iso)) / 1000);
@@ -256,12 +257,16 @@ export default function CommunitySection({
   year,
   date,
   showTitle,
+  artistName,
+  venueName,
 }: {
   showUuid: string;
   artistSlug: string;
   year: string;
   date: string; // YYYY-MM-DD
   showTitle: string;
+  artistName: string;
+  venueName?: string | null;
 }) {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
@@ -269,6 +274,14 @@ export default function CommunitySection({
       <p className="mb-6 -mt-4 text-sm text-gray-500">{showTitle}</p>
       <div className="flex flex-col gap-8">
         <CheckinBlock showUuid={showUuid} />
+        <div className="border-t border-gray-200" />
+        <TapeBoxBlock
+          showUuid={showUuid}
+          artistSlug={artistSlug}
+          artistName={artistName}
+          showDate={date}
+          venueName={venueName}
+        />
         <div className="border-t border-gray-200" />
         <TapeRatingBlock artistSlug={artistSlug} year={year} date={date} />
         <div className="border-t border-gray-200" />

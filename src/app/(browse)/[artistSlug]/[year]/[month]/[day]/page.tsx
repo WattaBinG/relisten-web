@@ -25,6 +25,8 @@ export default async function ShowDayPage({ params }: Props) {
         year={year}
         date={date}
         showTitle={`${artistName} — ${date}`}
+        artistName={artistName}
+        venueName={show.venue?.name ?? null}
       />
     </div>
   );
