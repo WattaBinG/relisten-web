@@ -12,6 +12,8 @@ import Row from './Row';
 import RowHeader from './RowHeader';
 import Tag from './Tag';
 import { sortSources } from '@/lib/sortSources';
+import AddToPlaylistButton from './playlists/AddToPlaylistButton';
+import { useArtistName } from '@/lib/cloud/playlists';
 
 const getSetTime = (set: Set): string =>
   durationToHHMMSS(
@@ -71,11 +73,17 @@ export const useSourceData = ({
 
 const SongsColumn = (props: Props) => {
   const [{ source: sourceId }] = sourceSearchParamsLoader.useQueryStates();
-  const { gaplessTracksMetadata, isActiveSourcePlaying, activeSourceObj, activePlaybackTrackId } =
-    useSourceData({
-      ...props,
-      source: sourceId,
-    });
+  const {
+    gaplessTracksMetadata,
+    isActiveSourcePlaying,
+    activeSourceObj,
+    activePlaybackTrackId,
+    displayDate,
+  } = useSourceData({
+    ...props,
+    source: sourceId,
+  });
+  const artistName = useArtistName(props.artistSlug);
 
   return (
     <Column
@@ -119,7 +127,23 @@ const SongsColumn = (props: Props) => {
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0 text-right">
+                  <div className="flex shrink-0 items-center gap-1 text-right">
+                    {track.uuid && activeSourceObj.uuid && props.show?.uuid && props.artistSlug && (
+                      <AddToPlaylistButton
+                        track={{
+                          artist_name: artistName || props.artistSlug,
+                          artist_slug: props.artistSlug,
+                          show_uuid: props.show.uuid,
+                          show_date: props.show.display_date ?? displayDate ?? '',
+                          venue_name: props.show.venue?.name ?? null,
+                          source_uuid: activeSourceObj.uuid,
+                          track_uuid: track.uuid,
+                          song_title: track.title ?? 'Untitled',
+                          track_position: track.track_position ?? null,
+                          duration_seconds: track.duration ?? null,
+                        }}
+                      />
+                    )}
                     {trackMetadata && (() => {
                       if (trackMetadata.webAudioLoadingState === 'LOADED')
                         return <Tag variant="success">{'\u2713'} GAPLESS</Tag>;

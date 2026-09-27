@@ -162,8 +162,13 @@ function createQueue(options?: { playbackMethod?: 'HYBRID' | 'HTML5_ONLY' }): Qu
         const track = playback.tracks[String(idx)];
 
         if (track) {
-          const songSlug = track.slug;
-          const { artistSlug, showDate, source } = playback;
+          // Playlist tracks carry their own show context (playlists span shows);
+          // fall back to the global playback context for normal show playback.
+          const plCtx = (track as { _plCtx?: { artistSlug?: string; showDate?: string; source?: string; songSlug?: string } })._plCtx;
+          const songSlug = plCtx?.songSlug ?? track.slug;
+          const artistSlug = plCtx?.artistSlug ?? playback.artistSlug;
+          const showDate = plCtx?.showDate ?? playback.showDate;
+          const source = plCtx?.source ?? playback.source;
           const { year, month, day } = splitShowDate(showDate);
 
           if (typeof window.Notification !== 'undefined') {

@@ -92,6 +92,11 @@ export default async function NavBar() {
               LIBRARY
             </Link>
           </div>
+          <div>
+            <Link className="nav-btn" href="/playlists" prefetch={false}>
+              PLAYLISTS
+            </Link>
+          </div>
           <div className="flex h-full items-center">
             <AuthButton />
           </div>
