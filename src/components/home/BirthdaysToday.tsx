@@ -6,9 +6,14 @@ import type { CommunityProfile } from '@/lib/cloud/community';
 /** Profiles with birthday_public=true whose birthday falls on today's month/day. */
 async function getTodaysBirthdays(): Promise<CommunityProfile[]> {
   if (!isCloudEnabled) return [];
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
+  // "Today" in the Lot's timezone (Eastern) — Vercel servers run UTC.
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(new Date());
+  const month = Number(parts.find((p) => p.type === 'month')?.value);
+  const day = Number(parts.find((p) => p.type === 'day')?.value);
   const { data, error } = await getSupabase()
     .from('profiles')
     .select('id, username, avatar_url, birthday')
