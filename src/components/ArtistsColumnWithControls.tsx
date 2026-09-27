@@ -7,7 +7,6 @@ import { useFilterState } from '@/hooks/useFilterState';
 import { FilterState } from '@/lib/filterCookies';
 import ColumnWithToggleControls from './ColumnWithToggleControls';
 import FavoriteHeart from './FavoriteHeart';
-import PopularityBadge from './PopularityBadge';
 import Row from './Row';
 import RowHeader from './RowHeader';
 
@@ -76,7 +75,6 @@ const ArtistsColumnWithControls = ({ artists, initialFilters }: ArtistsColumnWit
           >
             <div>
               <div>{artist.name}</div>
-              <PopularityBadge popularity={artist.popularity} />
               {byObject[String(artist.slug)] && (
                 <div className="text-foreground-muted text-xxs">
                   Powered by {byObject[String(artist.slug)]}
