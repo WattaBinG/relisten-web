@@ -9,6 +9,7 @@ import { Show } from '@/types';
 import { useFilterState } from '@/hooks/useFilterState';
 import { FilterState } from '@/lib/filterCookies';
 import ColumnWithToggleControls from './ColumnWithToggleControls';
+import FavoriteHeart from './FavoriteHeart';
 import Flex from './Flex';
 import PopularityBadge from './PopularityBadge';
 import Row from './Row';
@@ -131,10 +132,13 @@ const ShowsColumnWithControls = ({
                     </div>
                   )}
                 </div>
-                <div className="text-xxs text-foreground-muted flex h-full min-w-[20%] flex-col justify-between text-right">
-                  <PopularityBadge popularity={show.popularity} align="right" />
-                  <div>{durationToHHMMSS(avg_duration)}</div>
-                  <div>{simplePluralize('tape', show.source_count)}</div>
+                <div className="text-xxs text-foreground-muted flex h-full min-w-[20%] items-center justify-end gap-1 text-right">
+                  <FavoriteHeart type="show" uuid={show.uuid} />
+                  <div className="flex h-full flex-col justify-between">
+                    <PopularityBadge popularity={show.popularity} align="right" />
+                    <div>{durationToHHMMSS(avg_duration)}</div>
+                    <div>{simplePluralize('tape', show.source_count)}</div>
+                  </div>
                 </div>
               </Row>
             </div>

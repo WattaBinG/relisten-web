@@ -6,6 +6,7 @@ import { Artist } from '../types';
 import { useFilterState } from '@/hooks/useFilterState';
 import { FilterState } from '@/lib/filterCookies';
 import ColumnWithToggleControls from './ColumnWithToggleControls';
+import FavoriteHeart from './FavoriteHeart';
 import PopularityBadge from './PopularityBadge';
 import Row from './Row';
 import RowHeader from './RowHeader';
@@ -82,9 +83,12 @@ const ArtistsColumnWithControls = ({ artists, initialFilters }: ArtistsColumnWit
                 </div>
               )}
             </div>
-            <div className="text-foreground-muted min-w-[20%] text-right text-xs">
-              <div>{simplePluralize('show', artist.show_count)}</div>
-              <div>{simplePluralize('tape', artist.source_count)}</div>
+            <div className="flex items-center gap-1">
+              <FavoriteHeart type="artist" uuid={artist.uuid} />
+              <div className="text-foreground-muted min-w-[20%] text-right text-xs">
+                <div>{simplePluralize('show', artist.show_count)}</div>
+                <div>{simplePluralize('tape', artist.source_count)}</div>
+              </div>
             </div>
           </Row>
         )),

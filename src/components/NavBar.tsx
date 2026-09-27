@@ -5,6 +5,7 @@ import Player from './Player';
 import * as Popover from '@/components/Popover';
 import RelistenAPI from '@/lib/RelistenAPI';
 import MainNavHeader from './MainNavHeader';
+import AuthButton from './auth/AuthButton';
 import { MenuIcon } from 'lucide-react';
 import { getIsInIframe } from '@/lib/isInIframe';
 
@@ -77,6 +78,14 @@ export default async function NavBar() {
             <Link className="nav-btn" href="/about" prefetch={false}>
               ABOUT
             </Link>
+          </div>
+          <div>
+            <Link className="nav-btn" href="/favorites" prefetch={false}>
+              LIBRARY
+            </Link>
+          </div>
+          <div className="flex h-full items-center">
+            <AuthButton />
           </div>
         </div>
       </div>
