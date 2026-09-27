@@ -9,6 +9,7 @@ import {
 } from '@/lib/cloud/community';
 import UserLink from './UserLink';
 import Stars from './Stars';
+import { ShowName, TapeName } from './ShowName';
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - +new Date(iso)) / 1000);
@@ -29,21 +30,20 @@ function ActivityRow({ item }: { item: ActivityItem }) {
         </div>
         {item.kind === 'checkin' && (
           <p className="text-gray-600">
-            was at a show{' '}
-            <span className="font-mono text-xs text-gray-400">
-              {item.show_uuid?.slice(0, 8)}…
-            </span>
+            was at <ShowName showUuid={item.show_uuid} showVenue className="font-medium hover:underline" />
           </p>
         )}
         {item.kind === 'review' && (
           <p className="truncate text-gray-600">
-            reviewed a show: “{item.body?.slice(0, 80)}
+            reviewed <ShowName showUuid={item.show_uuid} className="font-medium hover:underline" />
+            : “{item.body?.slice(0, 80)}
             {(item.body?.length ?? 0) > 80 ? '…' : ''}”
           </p>
         )}
         {item.kind === 'rating' && (
           <p className="flex items-center gap-2 text-gray-600">
-            rated a tape <Stars value={item.rating ?? 0} size={14} />
+            rated <TapeName showUuid={item.show_uuid} sourceUuid={item.source_uuid} className="font-medium hover:underline" />{' '}
+            <Stars value={item.rating ?? 0} size={14} />
           </p>
         )}
       </div>

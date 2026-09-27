@@ -79,10 +79,43 @@ function CheckinBlock({ showUuid }: { showUuid: string }) {
 // Reviews (phish.net-style)
 // ---------------------------------------------------------------------------
 
-function ReviewCard({ review }: { review: Review }) {
+function ReviewCard({
+  review,
+  onDelete,
+  onUpdate,
+}: {
+  review: Review;
+  onDelete: (id: string) => Promise<void>;
+  onUpdate: (id: string, body: string) => Promise<boolean>;
+}) {
   const { session } = useCloudAuth();
-  const { remove } = useReviews(review.show_uuid);
   const isOwn = session?.user?.id === review.user_id;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(review.body);
+  const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const saveEdit = async () => {
+    const body = draft.trim();
+    if (!body || saving) return;
+    setError(null);
+    setSaving(true);
+    const ok = await onUpdate(review.id, body);
+    setSaving(false);
+    if (ok) setEditing(false);
+    else setError('Could not save your edit. Please try again.');
+  };
+
+  const confirmDelete = async () => {
+    if (deleting) return;
+    setError(null);
+    setDeleting(true);
+    await onDelete(review.id);
+    setDeleting(false);
+    setConfirmingDelete(false);
+  };
 
   return (
     <div className="rounded-lg border border-gray-200 p-4">
@@ -93,24 +126,84 @@ function ReviewCard({ review }: { review: Review }) {
         </div>
         <div className="flex items-center gap-2">
           {review.profile && <FollowButton userId={review.profile.id} />}
-          {isOwn && (
-            <button
-              onClick={() => remove(review.id)}
-              className="cursor-pointer text-xs text-gray-400 hover:text-red-600"
-            >
-              Delete
-            </button>
+          {isOwn && !editing && (
+            <>
+              <button
+                onClick={() => {
+                  setDraft(review.body);
+                  setError(null);
+                  setEditing(true);
+                }}
+                className="cursor-pointer text-xs text-gray-400 hover:text-black"
+              >
+                Edit
+              </button>
+              {confirmingDelete ? (
+                <span className="flex items-center gap-1">
+                  <button
+                    onClick={confirmDelete}
+                    disabled={deleting}
+                    className="cursor-pointer rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting…' : 'Confirm delete'}
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={deleting}
+                    className="cursor-pointer text-xs text-gray-400 hover:text-black disabled:opacity-50"
+                  >
+                    Keep
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setConfirmingDelete(true)}
+                  className="cursor-pointer text-xs text-gray-400 hover:text-red-600"
+                >
+                  Delete
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
-      <p className="mt-2 text-sm whitespace-pre-wrap">{review.body}</p>
+      {editing ? (
+        <div className="mt-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={saveEdit}
+              disabled={saving || !draft.trim()}
+              className="cursor-pointer rounded-full bg-black px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="cursor-pointer rounded-full border border-gray-300 px-4 py-1.5 text-sm disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2 text-sm whitespace-pre-wrap">{review.body}</p>
+      )}
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
 
 function ReviewBlock({ showUuid }: { showUuid: string }) {
   const { status } = useCloudAuth();
-  const { reviews, count, post } = useReviews(showUuid);
+  const { reviews, count, post, remove, update } = useReviews(showUuid);
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,7 +258,7 @@ function ReviewBlock({ showUuid }: { showUuid: string }) {
       ) : (
         <div className="flex flex-col gap-3">
           {reviews.map((r) => (
-            <ReviewCard key={r.id} review={r} />
+            <ReviewCard key={r.id} review={r} onDelete={remove} onUpdate={update} />
           ))}
         </div>
       )}
@@ -188,6 +281,7 @@ function TapeRatingBlock({
 }) {
   const { status } = useCloudAuth();
   const [sourceUuids, setSourceUuids] = useState<string[]>([]);
+  const [showUuid, setShowUuid] = useState<string | null>(null);
   const { summaries, rate } = useSourceRatings(sourceUuids);
 
   useEffect(() => {
@@ -195,6 +289,7 @@ function TapeRatingBlock({
       .then((show) => {
         const uuids = (show?.sources ?? []).map((s: { uuid?: string }) => s.uuid).filter(Boolean) as string[];
         setSourceUuids(uuids);
+        setShowUuid(show?.uuid ?? null);
       })
       .catch(() => {});
   }, [artistSlug, year, date]);
@@ -229,7 +324,7 @@ function TapeRatingBlock({
             return (
               <div key={uuid} className="flex items-center gap-3 text-sm">
                 <span className="w-16 shrink-0 text-gray-500">Tape {i + 1}</span>
-                <Stars value={s?.userRating ?? 0} onRate={(n) => rate(uuid, n)} size={18} />
+                <Stars value={s?.userRating ?? 0} onRate={(n) => rate(uuid, n, showUuid)} size={18} />
                 {s && s.count > 0 && (
                   <span className="text-xs text-gray-500">
                     {s.avg.toFixed(1)} ({s.count})

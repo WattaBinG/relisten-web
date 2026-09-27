@@ -132,6 +132,28 @@ export async function removeTrackFromPlaylist(trackId: string): Promise<boolean>
   return !error;
 }
 
+/** Verify a playlist row is actually gone (guards against silent RLS no-ops). */
+export async function playlistGone(playlistId: string): Promise<boolean> {
+  if (!isCloudEnabled) return false;
+  const { data } = await getSupabase()
+    .from('playlists')
+    .select('id')
+    .eq('id', playlistId)
+    .maybeSingle();
+  return !data;
+}
+
+/** Verify a playlist track row is actually gone (guards against silent RLS no-ops). */
+export async function playlistTrackGone(trackId: string): Promise<boolean> {
+  if (!isCloudEnabled) return false;
+  const { data } = await getSupabase()
+    .from('playlist_tracks')
+    .select('id')
+    .eq('id', trackId)
+    .maybeSingle();
+  return !data;
+}
+
 /** Reorder tracks: pass the full ordered list of track ids. */
 export async function reorderPlaylistTracks(
   playlistId: string,

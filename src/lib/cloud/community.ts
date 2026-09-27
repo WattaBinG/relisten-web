@@ -162,7 +162,25 @@ export function useReviews(showUuid: string | null | undefined) {
     [userId, refresh]
   );
 
-  return { reviews, count: reviews.length, post, remove, loading, refresh };
+  const update = useCallback(
+    async (id: string, body: string): Promise<boolean> => {
+      if (!userId || !isCloudEnabled) return false;
+      const { error } = await getSupabase()
+        .from('show_comments')
+        .update({ body, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', userId);
+      if (error) {
+        console.error('update review failed', error);
+        return false;
+      }
+      refresh();
+      return true;
+    },
+    [userId, refresh]
+  );
+
+  return { reviews, count: reviews.length, post, remove, update, loading, refresh };
 }
 
 // ---------------------------------------------------------------------------
@@ -203,12 +221,18 @@ export function useSourceRatings(sourceUuids: string[]) {
   }, [refresh]);
 
   const rate = useCallback(
-    async (sourceUuid: string, rating: number) => {
+    async (sourceUuid: string, rating: number, showUuid?: string | null) => {
       if (!userId || !isCloudEnabled) return;
       await getSupabase()
         .from('source_ratings')
         .upsert(
-          { source_uuid: sourceUuid, user_id: userId, rating, updated_at: new Date().toISOString() },
+          {
+            source_uuid: sourceUuid,
+            user_id: userId,
+            rating,
+            updated_at: new Date().toISOString(),
+            ...(showUuid ? { show_uuid: showUuid } : {}),
+          },
           { onConflict: 'user_id,source_uuid' }
         );
       refresh();
@@ -223,11 +247,53 @@ export function useSourceRatings(sourceUuids: string[]) {
 // Follows
 // ---------------------------------------------------------------------------
 
+interface FollowShared {
+  following: boolean;
+  counts: { followers: number; following: number };
+  loaded: boolean;
+}
+
+/**
+ * Module-level shared follow state, keyed by target user id. FollowButton and
+ * FollowCounts each call useFollow() separately; without sharing, a toggle in
+ * one instance left the other's numbers stale (or briefly zeroed on remount).
+ * All instances for the same target now read/write one record and re-render
+ * together.
+ */
+const followStore = new Map<string, FollowShared>();
+const followListeners = new Map<string, Set<() => void>>();
+
+function getFollowShared(targetUserId: string): FollowShared {
+  let s = followStore.get(targetUserId);
+  if (!s) {
+    s = { following: false, counts: { followers: 0, following: 0 }, loaded: false };
+    followStore.set(targetUserId, s);
+  }
+  return s;
+}
+
+function emitFollow(targetUserId: string) {
+  followListeners.get(targetUserId)?.forEach((fn) => fn());
+}
+
 export function useFollow(targetUserId: string | null | undefined) {
   const { session } = useCloudAuth();
   const userId = session?.user?.id ?? null;
-  const [following, setFollowing] = useState(false);
-  const [counts, setCounts] = useState({ followers: 0, following: 0 });
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!targetUserId) return;
+    const listener = () => setTick((t) => t + 1);
+    let set = followListeners.get(targetUserId);
+    if (!set) {
+      set = new Set();
+      followListeners.set(targetUserId, set);
+    }
+    set.add(listener);
+    return () => {
+      set?.delete(listener);
+    };
+  }, [targetUserId]);
 
   const refresh = useCallback(async () => {
     if (!targetUserId || !isCloudEnabled) return;
@@ -249,31 +315,56 @@ export function useFollow(targetUserId: string | null | undefined) {
             .maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
-    setCounts({ followers: followers ?? 0, following: followingCount ?? 0 });
-    setFollowing(!!mine.data);
+    const s = getFollowShared(targetUserId);
+    s.counts = { followers: followers ?? 0, following: followingCount ?? 0 };
+    s.following = !!mine.data;
+    s.loaded = true;
+    emitFollow(targetUserId);
   }, [targetUserId, userId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (targetUserId && !getFollowShared(targetUserId).loaded) {
+      refresh();
+    }
+  }, [targetUserId, refresh]);
 
   const toggle = useCallback(async () => {
     if (!targetUserId || !userId || !isCloudEnabled || targetUserId === userId) return;
-    if (following) {
-      await getSupabase()
-        .from('follows')
-        .delete()
-        .eq('follower_id', userId)
-        .eq('following_id', targetUserId);
-    } else {
-      await getSupabase()
-        .from('follows')
-        .insert({ follower_id: userId, following_id: targetUserId });
+    const s = getFollowShared(targetUserId);
+    const next = !s.following;
+    // Optimistic: numbers never blank out mid-toggle, every instance updates.
+    const prev = { following: s.following, counts: { ...s.counts } };
+    s.following = next;
+    s.counts = {
+      ...s.counts,
+      followers: Math.max(0, s.counts.followers + (next ? 1 : -1)),
+    };
+    emitFollow(targetUserId);
+    const { error } = next
+      ? await getSupabase().from('follows').insert({ follower_id: userId, following_id: targetUserId })
+      : await getSupabase()
+          .from('follows')
+          .delete()
+          .eq('follower_id', userId)
+          .eq('following_id', targetUserId);
+    if (error) {
+      // Revert the optimistic update so the UI matches reality.
+      s.following = prev.following;
+      s.counts = prev.counts;
+      emitFollow(targetUserId);
+      return;
     }
-    refresh();
-  }, [targetUserId, userId, following, refresh]);
+    await refresh();
+  }, [targetUserId, userId, refresh]);
 
-  return { following, counts, toggle, isSelf: !!userId && userId === targetUserId };
+  const shared = targetUserId ? getFollowShared(targetUserId) : undefined;
+  return {
+    following: shared?.following ?? false,
+    counts: shared?.counts ?? { followers: 0, following: 0 },
+    toggle,
+    refresh,
+    isSelf: !!userId && userId === targetUserId,
+  };
 }
 
 /** User ids the current user follows. */
@@ -325,7 +416,6 @@ export function useProfileByUsername(username: string | null | undefined) {
   return { profile, notFound };
 }
 
-/** Recent check-ins for a user, newest first. */
 export function useUserCheckins(userId: string | null | undefined, limit = 10) {
   const [rows, setRows] = useState<{ show_uuid: string; created_at: string }[]>([]);
   useEffect(() => {
@@ -360,7 +450,7 @@ export function useUserCheckinCount(userId: string | null | undefined) {
 
 /** Top-rated sources for a user (rating 4-5, newest first). */
 export function useUserTopRatings(userId: string | null | undefined, limit = 5) {
-  const [rows, setRows] = useState<{ source_uuid: string; rating: number }[]>([]);
+  const [rows, setRows] = useState<{ source_uuid: string; show_uuid: string | null; rating: number }[]>([]);
   useEffect(() => {
     if (!userId || !isCloudEnabled) {
       setRows([]);
@@ -368,7 +458,7 @@ export function useUserTopRatings(userId: string | null | undefined, limit = 5) 
     }
     getSupabase()
       .from('source_ratings')
-      .select('source_uuid, rating')
+      .select('source_uuid, show_uuid, rating')
       .eq('user_id', userId)
       .gte('rating', 4)
       .order('updated_at', { ascending: false })
@@ -421,7 +511,7 @@ export function useFriendsActivity(limit = 20) {
           .limit(limit),
         getSupabase()
           .from('source_ratings')
-          .select('user_id, source_uuid, rating, updated_at')
+          .select('user_id, source_uuid, show_uuid, rating, updated_at')
           .in('user_id', followingIds)
           .order('updated_at', { ascending: false })
           .limit(limit),
@@ -446,6 +536,7 @@ export function useFriendsActivity(limit = 20) {
           kind: 'rating' as const,
           created_at: r.updated_at,
           user_id: r.user_id,
+          show_uuid: r.show_uuid,
           source_uuid: r.source_uuid,
           rating: r.rating,
           profile: null,

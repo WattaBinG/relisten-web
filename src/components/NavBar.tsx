@@ -24,7 +24,7 @@ export default async function NavBar() {
 
   return (
     <>
-      <div className="navigation text-foreground relative grid h-[50px] max-h-[50px] min-h-[50px] grid-cols-[auto_1fr_auto] border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:grid-cols-[1fr_auto_1fr] lg:px-4">
+      <div className="navigation text-foreground relative grid h-[50px] max-h-[50px] min-h-[50px] grid-cols-[auto_1fr_auto] border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:grid-cols-[auto_auto_1fr_auto] lg:px-4">
         <MainNavHeader
           artistSlugsToName={artistSlugsToName}
           indexOverride={isInIframe ? '/wsp' : undefined}

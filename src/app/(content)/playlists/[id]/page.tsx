@@ -21,11 +21,14 @@ import {
   updatePlaylist,
   deletePlaylist,
   removeTrackFromPlaylist,
+  playlistGone,
+  playlistTrackGone,
   type PlaylistTrack,
 } from '@/lib/cloud/playlists';
 import { playPlaylist, playPlaylistFrom } from '@/lib/playlistPlayback';
 import { durationToHHMMSS } from '@/lib/utils';
 import UserLink from '@/components/community/UserLink';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
 
 function trackShowPath(t: PlaylistTrack): string {
@@ -57,6 +60,11 @@ export default function PlaylistDetailPage({ params }: { params: Promise<{ id: s
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const isOwner = !!userId && playlist?.user_id === userId;
   const totalSeconds = tracks.reduce((s, t) => s + (Number(t.duration_seconds) || 0), 0);
@@ -96,10 +104,26 @@ export default function PlaylistDetailPage({ params }: { params: Promise<{ id: s
   };
 
   const doRemove = async (trackId: string) => {
-    if (!confirm('Remove this track from the playlist?')) return;
-    const ok = await removeTrackFromPlaylist(trackId);
-    if (ok) refreshTracks();
-    else toast.error('Could not remove track');
+    if (removingId) return;
+    setActionError(null);
+    setRemovingId(trackId);
+    try {
+      const ok = await removeTrackFromPlaylist(trackId);
+      const gone = ok && (await playlistTrackGone(trackId));
+      if (gone) {
+        setConfirmingRemoveId(null);
+        await refreshTracks();
+        toast.success('Track removed');
+      } else {
+        setActionError('Could not remove that track. Please try again.');
+        toast.error('Could not remove track');
+      }
+    } catch {
+      setActionError('Could not remove that track. Please try again.');
+      toast.error('Could not remove track');
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   const startEdit = () => {
@@ -121,11 +145,27 @@ export default function PlaylistDetailPage({ params }: { params: Promise<{ id: s
   };
 
   const doDelete = async () => {
-    if (!playlist) return;
-    if (!confirm(`Delete "${playlist.name}"? This can't be undone.`)) return;
-    const ok = await deletePlaylist(playlist.id);
-    if (ok) router.push('/playlists');
-    else toast.error('Could not delete');
+    if (!playlist || deleting) return;
+    setActionError(null);
+    setDeleting(true);
+    try {
+      const ok = await deletePlaylist(playlist.id);
+      const gone = ok && (await playlistGone(playlist.id));
+      if (gone) {
+        toast.success('Playlist deleted');
+        router.push('/playlists');
+      } else {
+        setConfirmingDelete(false);
+        setActionError('Could not delete that playlist. Please try again.');
+        toast.error('Could not delete playlist');
+      }
+    } catch {
+      setConfirmingDelete(false);
+      setActionError('Could not delete that playlist. Please try again.');
+      toast.error('Could not delete playlist');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const toggleVisibility = async () => {
@@ -264,7 +304,7 @@ export default function PlaylistDetailPage({ params }: { params: Promise<{ id: s
               Make {playlist.is_public ? 'private' : 'public'}
             </button>
             <button
-              onClick={doDelete}
+              onClick={() => setConfirmingDelete(true)}
               className="flex items-center gap-1 rounded-full border border-red-200 px-4 py-2 text-sm text-red-600"
             >
               <Trash2 size={14} /> Delete
@@ -272,6 +312,21 @@ export default function PlaylistDetailPage({ params }: { params: Promise<{ id: s
           </>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={`Delete "${playlist.name}"?`}
+        message="This can't be undone. The playlist and its track list will be permanently removed."
+        confirmLabel="Delete playlist"
+        danger
+        busy={deleting}
+        onConfirm={doDelete}
+        onCancel={() => {
+          if (!deleting) setConfirmingDelete(false);
+        }}
+      />
+      {actionError && (
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>
+      )}
 
       {/* Tracks */}
       <div className="mt-6">
@@ -312,15 +367,38 @@ export default function PlaylistDetailPage({ params }: { params: Promise<{ id: s
                     {durationToHHMMSS(Number(t.duration_seconds))}
                   </span>
                 ) : null}
-                {isOwner && (
-                  <button
-                    onClick={() => doRemove(t.id)}
-                    aria-label="Remove track"
-                    className="shrink-0 rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+                {isOwner &&
+                  (confirmingRemoveId === t.id ? (
+                    <span className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => doRemove(t.id)}
+                        disabled={removingId === t.id}
+                        className="shrink-0 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {removingId === t.id ? 'Removing…' : 'Confirm'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingRemoveId(null)}
+                        disabled={removingId === t.id}
+                        aria-label="Keep track"
+                        className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-50"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setActionError(null);
+                        setConfirmingRemoveId(t.id);
+                      }}
+                      aria-label="Remove track"
+                      title="Remove track"
+                      className="shrink-0 rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  ))}
               </li>
             ))}
           </ol>

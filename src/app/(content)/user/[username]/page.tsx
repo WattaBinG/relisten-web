@@ -17,6 +17,7 @@ import { useUserTapes, useUserTapeCount } from '@/lib/cloud/tapebox';
 import Avatar from '@/components/community/Avatar';
 import FollowButton, { FollowCounts } from '@/components/community/FollowButton';
 import Stars from '@/components/community/Stars';
+import { ShowName, TapeName } from '@/components/community/ShowName';
 import TapeShelf from '@/components/tapebox/TapeShelf';
 
 export default function UserProfilePage() {
@@ -127,9 +128,9 @@ export default function UserProfilePage() {
             {checkins.map((c) => (
               <div key={c.show_uuid} className="text-sm">
                 <span className="text-gray-500">
-                  {new Date(c.created_at).toLocaleDateString()} — checked in at show{' '}
+                  {new Date(c.created_at).toLocaleDateString()} — checked in at{' '}
                 </span>
-                <span className="font-mono text-xs text-gray-400">{c.show_uuid.slice(0, 8)}…</span>
+                <ShowName showUuid={c.show_uuid} showVenue className="font-medium hover:underline" />
               </div>
             ))}
           </div>
@@ -143,7 +144,7 @@ export default function UserProfilePage() {
             {topRatings.map((r) => (
               <div key={r.source_uuid} className="flex items-center gap-3 text-sm">
                 <Stars value={r.rating} size={16} />
-                <span className="font-mono text-xs text-gray-400">{r.source_uuid.slice(0, 8)}…</span>
+                <TapeName showUuid={r.show_uuid} sourceUuid={r.source_uuid} className="font-medium hover:underline" />
               </div>
             ))}
           </div>

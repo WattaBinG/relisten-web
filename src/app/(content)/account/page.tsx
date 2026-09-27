@@ -348,7 +348,10 @@ function EmailSection() {
 
 function BirthdaySection() {
   const { profile, refreshProfile, session } = useCloudAuth();
-  const [date, setDate] = useState('');
+  // Uncontrolled input: a controlled type="date" reports "" for incomplete
+  // input, so writing e.target.value back into state wipes what the user is
+  // typing (only the picker/picker arrows ever worked). Read via ref on save.
+  const dateRef = useRef<HTMLInputElement>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [emailOptIn, setEmailOptIn] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -359,7 +362,6 @@ function BirthdaySection() {
   // Seed the form from the profile once it's loaded.
   useEffect(() => {
     if (initialized || !profile) return;
-    setDate(profile.birthday ?? '');
     setIsPublic(profile.birthday_public ?? false);
     setEmailOptIn(profile.birthday_email_opt_in ?? true);
     setInitialized(true);
@@ -368,7 +370,7 @@ function BirthdaySection() {
   const save = async () => {
     setError(null);
     setNotice(null);
-    const clean = date.trim();
+    const clean = (dateRef.current?.value ?? '').trim();
     if (clean && !getMonthDay(clean)) {
       setError('Pick a valid date.');
       return;
@@ -403,17 +405,21 @@ function BirthdaySection() {
       </p>
       <label className="flex flex-col gap-1 text-sm">
         Your birthday
-        <input
-          type="date"
-          className={inputClass}
-          value={date}
-          max="2026-12-31"
-          onChange={(e) => {
-            setDate(e.target.value);
-            setError(null);
-            setNotice(null);
-          }}
-        />
+        {initialized ? (
+          <input
+            type="date"
+            ref={dateRef}
+            className={inputClass}
+            defaultValue={profile?.birthday ?? ''}
+            max="2026-12-31"
+            onChange={() => {
+              setError(null);
+              setNotice(null);
+            }}
+          />
+        ) : (
+          <input type="date" className={inputClass} value="" disabled aria-label="Your birthday" />
+        )}
       </label>
       <div className="mt-4 flex flex-col gap-3">
         <label className="flex cursor-pointer items-center justify-between gap-4 text-sm">
