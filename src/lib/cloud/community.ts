@@ -167,7 +167,7 @@ export function useReviews(showUuid: string | null | undefined) {
       if (!userId || !isCloudEnabled) return false;
       const { error } = await getSupabase()
         .from('show_comments')
-        .update({ body, updated_at: new Date().toISOString() })
+        .update({ body })
         .eq('id', id)
         .eq('user_id', userId);
       if (error) {
