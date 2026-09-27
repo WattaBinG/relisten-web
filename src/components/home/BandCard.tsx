@@ -1,17 +1,24 @@
 import Link from 'next/link';
 import FavoriteHeart from '@/components/FavoriteHeart';
+import BandImage from '@/components/BandImage';
 import { simplePluralize } from '@/lib/utils';
 import type { Artist } from '@/types';
 
-/** Simple band card: name, show/tape counts, favorite heart. No stats matrix. */
+/** Spotify-style band card: artwork, name, show/tape counts, favorite heart. */
 export default function BandCard({ artist }: { artist: Artist }) {
   return (
     <Link
       href={`/${artist.slug}`}
       prefetch={false}
-      className="group flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition hover:border-relisten-500 hover:shadow-sm"
+      className="group flex flex-col rounded-xl bg-white p-3 transition hover:bg-gray-50 hover:shadow-md"
     >
-      <div className="min-w-0">
+      <div className="relative">
+        <BandImage name={artist.name ?? ''} slug={artist.slug} size={160} className="w-full !h-auto aspect-square" />
+        <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
+          <FavoriteHeart type="artist" uuid={artist.uuid} />
+        </div>
+      </div>
+      <div className="mt-3 min-w-0 px-1 pb-1">
         <div className="truncate text-sm font-semibold text-foreground group-hover:text-relisten-700">
           {artist.name}
         </div>
@@ -19,7 +26,6 @@ export default function BandCard({ artist }: { artist: Artist }) {
           {simplePluralize('show', artist.show_count)} · {simplePluralize('tape', artist.source_count)}
         </div>
       </div>
-      <FavoriteHeart type="artist" uuid={artist.uuid} />
     </Link>
   );
 }
