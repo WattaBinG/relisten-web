@@ -565,8 +565,22 @@ export default function AccountPage() {
     );
   }
 
-  const sendReset = async () => {
+  const oauth = async (provider: 'google' | 'apple') => {
     setError(null);
+    setBusy(true);
+    try {
+      // On success the browser leaves for the provider; on error we stay here.
+      const { error: oauthError } = await getSupabase().auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: 'https://relisten-web.vercel.app/auth/callback' },
+      });
+      if (oauthError) setError(friendlyError(oauthError.message));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendReset = async () => {    setError(null);
     if (!email) {
       setError('Enter your email above first, then hit "Forgot password?"');
       return;
@@ -641,6 +655,32 @@ export default function AccountPage() {
         One account for The Lot everywhere — your username and favorites follow you between the
         app and this site.
       </p>
+
+      <div className="mt-4 flex max-w-sm flex-col gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void oauth('google')}
+          className="flex cursor-pointer items-center justify-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium disabled:opacity-50"
+        >
+          <span className="text-base font-bold text-[#4285f4]">G</span>
+          Continue with Google
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void oauth('apple')}
+          className="flex cursor-pointer items-center justify-center gap-2 rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          <span className="text-base"></span>
+          Continue with Apple
+        </button>
+        <div className="my-1 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs text-gray-500">or continue with email</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+      </div>
 
       <form onSubmit={submit} className="mt-4 flex max-w-sm flex-col gap-3">
         {mode === 'signup' && (
