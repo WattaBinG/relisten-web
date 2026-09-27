@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { normalizeUsername, useCloudAuth } from '@/lib/cloud/auth';
-import { isCloudEnabled } from '@/lib/cloud/supabase';
+import { isCloudEnabled, getSupabase } from '@/lib/cloud/supabase';
 
 function friendlyError(message: string): string {
   if (/invalid login credentials/i.test(message)) return 'Wrong email or password — try again.';
@@ -145,6 +145,8 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
 
   if (!isCloudEnabled) {
     return (
@@ -178,8 +180,25 @@ export default function AccountPage() {
     );
   }
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const sendReset = async () => {
+    setError(null);
+    if (!email) {
+      setError('Enter your email above first, then hit "Forgot password?"');
+      return;
+    }
+    setResetBusy(true);
+    try {
+      const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://relisten-web.vercel.app/reset-password',
+      });
+      if (error) setError(friendlyError(error.message));
+      else setResetSent(true);
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  const submit = async (e: FormEvent) => {    e.preventDefault();
     setError(null);
     setBusy(true);
     try {
@@ -277,6 +296,11 @@ export default function AccountPage() {
           />
         </label>
         {error && <p className="text-sm text-red-600">{error}</p>}
+        {resetSent && (
+          <p className="text-sm text-green-700">
+            Reset link sent — check your email for the link to set a new password.
+          </p>
+        )}
         <button
           type="submit"
           disabled={busy}
@@ -284,6 +308,16 @@ export default function AccountPage() {
         >
           {busy ? 'Working…' : mode === 'signup' ? 'Create account' : 'Sign in'}
         </button>
+        {mode === 'signin' && (
+          <button
+            type="button"
+            disabled={resetBusy}
+            onClick={sendReset}
+            className="cursor-pointer self-start text-sm text-gray-600 underline disabled:opacity-50"
+          >
+            {resetBusy ? 'Sending…' : 'Forgot password?'}
+          </button>
+        )}
       </form>
 
       <p className="mt-4 text-sm">
