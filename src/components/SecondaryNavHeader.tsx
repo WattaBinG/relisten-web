@@ -4,10 +4,6 @@ import Link from 'next/link';
 import { useParams, usePathname, useSelectedLayoutSegments } from 'next/navigation';
 
 const pages = {
-  'sonos': {
-    prefix: 'ON',
-    title: 'SONOS',
-  },
   'app': {
     prefix: 'ON THE',
     title: 'GO',
@@ -20,9 +16,17 @@ const pages = {
     prefix: 'TO',
     title: 'RECENTLY PLAYED',
   },
-  'chat': {
-    prefix: 'WITH',
-    title: 'US',
+  'tape-box': {
+    prefix: 'YOUR',
+    title: 'TAPE BOX',
+  },
+  'playlists': {
+    prefix: 'YOUR',
+    title: 'PLAYLISTS',
+  },
+  'favorites': {
+    prefix: 'YOUR',
+    title: 'FAVORITES',
   },
   'about': {
     prefix: 'TO',

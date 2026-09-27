@@ -24,7 +24,7 @@ export default async function NavBar() {
 
   return (
     <>
-      <div className="navigation text-foreground relative grid h-[50px] max-h-[50px] min-h-[50px] grid-cols-[auto_1fr_auto] border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:grid-cols-[auto_auto_1fr_auto] lg:px-4">
+      <div className="navigation text-foreground relative grid h-[50px] max-h-[50px] min-h-[50px] grid-cols-[auto_1fr_auto] border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:px-4">
         <MainNavHeader
           artistSlugsToName={artistSlugsToName}
           indexOverride={isInIframe ? '/wsp' : undefined}
@@ -36,12 +36,12 @@ export default async function NavBar() {
             )}
           />
         </div>
-        <div className="player overflow-hidden text-center lg:max-w-[44vw] lg:min-w-[44vw] lg:justify-self-center xl:max-w-[38vw] xl:min-w-[38vw]">
+        <div className="player min-w-0 overflow-hidden text-center lg:justify-self-center xl:max-w-[38vw]">
           <Player artistSlugsToName={artistSlugsToName} />
         </div>
 
         <Popover.Root>
-          <Popover.Trigger className="ml-2 ml-auto h-full w-min cursor-pointer content-end items-center justify-self-end text-center font-medium xl:hidden">
+          <Popover.Trigger className="ml-2 h-full w-min cursor-pointer content-end items-center justify-self-end text-center font-medium xl:hidden">
             <Flex className="ml-2 h-full cursor-pointer content-end items-center text-center font-medium xl:hidden">
               <div className="active:text-foreground active:relative active:top-[1px] ml-auto flex h-full items-center px-1">
                 <MenuIcon />
@@ -56,20 +56,30 @@ export default async function NavBar() {
           </Popover.Portal>
         </Popover.Root>
 
-        <div className="nav hidden h-full cursor-pointer items-center gap-4 justify-self-end text-center font-medium xl:flex">
+        <div className="nav hidden h-full min-w-0 cursor-pointer items-center gap-4 justify-self-end text-center font-medium whitespace-nowrap xl:flex">
           <div className="h-full">
             <Link className="nav-btn" href="/today" prefetch={false}>
-              TIH
+              TODAY
             </Link>
           </div>
           <div>
             <Link className="nav-btn whitespace-nowrap" href="/recently-played" prefetch={false}>
-              LIVE
+              TAPES
             </Link>
           </div>
           <div>
-            <Link className="nav-btn" href="/chat" prefetch={false}>
-              CHAT
+            <Link className="nav-btn whitespace-nowrap" href="/tape-box" prefetch={false}>
+              TAPE BOX
+            </Link>
+          </div>
+          <div>
+            <Link className="nav-btn" href="/playlists" prefetch={false}>
+              PLAYLISTS
+            </Link>
+          </div>
+          <div>
+            <Link className="nav-btn" href="/favorites" prefetch={false}>
+              FAVORITES
             </Link>
           </div>
           <div>
@@ -78,23 +88,8 @@ export default async function NavBar() {
             </Link>
           </div>
           <div>
-            <Link className="nav-btn" href="/sonos" prefetch={false}>
-              SONOS
-            </Link>
-          </div>
-          <div>
             <Link className="nav-btn" href="/about" prefetch={false}>
               ABOUT
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn" href="/favorites" prefetch={false}>
-              LIBRARY
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn" href="/playlists" prefetch={false}>
-              PLAYLISTS
             </Link>
           </div>
           <div className="flex h-full items-center">

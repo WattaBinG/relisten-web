@@ -512,7 +512,7 @@ function SettingsMenu() {
       </section>
 
       <section className={sectionClass}>
-        <h2 className={sectionTitleClass}>Library</h2>
+        <h2 className={sectionTitleClass}>Favorites</h2>
         <Link href="/favorites" className="text-sm underline">
           View your favorites →
         </Link>
