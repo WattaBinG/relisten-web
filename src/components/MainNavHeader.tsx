@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import Flex from './Flex';
 import SecondaryNavBar from './SecondaryNavHeader';
@@ -30,14 +31,29 @@ export default function MainNavHeader({
           className="text-center"
           prefetch={false}
           onClick={onClickNav}
+          aria-label="The Lot home"
         >
-          THE LOT
+          <Image
+            src="/brand/logo-on-light.png"
+            alt="The Lot"
+            width={96}
+            height={32}
+            className="h-8 w-auto"
+            priority
+          />
         </Link>
         <SecondaryNavBar artistSlugsToName={artistSlugsToName} />
       </Flex>
       <Flex className="h-full pr-2 font-medium lg:hidden" center>
-        <Link href={indexOverride ?? '/'} prefetch={false}>
-          TL
+        <Link href={indexOverride ?? '/'} prefetch={false} aria-label="The Lot home">
+          <Image
+            src="/brand/logo-on-light.png"
+            alt="The Lot"
+            width={84}
+            height={28}
+            className="h-7 w-auto"
+            priority
+          />
         </Link>
       </Flex>
     </>

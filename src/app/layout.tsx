@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className={font.className}>
-        <NextTopLoader showSpinner={false} />
+        <NextTopLoader color="#7d43b8" showSpinner={false} />
         {/* <Link href="https://en.wikipedia.org/wiki/Bob_Weir" target="_blank">
           <div className="fixed top-0 z-10 h-2 w-full bg-black" />
         </Link> */}

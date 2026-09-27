@@ -2,6 +2,7 @@ import NavBar from '@/components/NavBar';
 import RelistenAPI from '@/lib/RelistenAPI';
 import BandSearch, { type BandSearchItem } from '@/components/BandSearch';
 import HomeHero from '@/components/home/HomeHero';
+import BrandHero from '@/components/home/BrandHero';
 import TrendingRow, { type TrendingBand } from '@/components/home/TrendingRow';
 import BrowseAllBands from '@/components/home/BrowseAllBands';
 import FriendsActivity from '@/components/community/FriendsActivity';
@@ -42,6 +43,7 @@ export default async function HomePage() {
     <div className="min-h-screen">
       <NavBar />
       <main className="mx-auto w-full max-w-6xl space-y-12 px-4 py-8">
+        <BrandHero />
         {hero && <HomeHero artist={hero.artist} weeklyPlays={hero.plays} />}
 
         {/* Prominent search on smaller screens (the header carries it on desktop) */}

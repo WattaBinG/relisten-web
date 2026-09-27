@@ -4,18 +4,19 @@
   --text-xxs: 0.7rem;
   --text-xxs--line-height: 1rem;
 
-  --color-relisten-DEFAULT: #009DC1;
-  --color-relisten-50: #A2EEFF;
-  --color-relisten-100: #8EEAFF;
-  --color-relisten-200: #65E2FF;
-  --color-relisten-300: #3CDBFF;
-  --color-relisten-400: #14D3FF;
-  --color-relisten-500: #00BEEA;
-  --color-relisten-600: #009DC1;
-  --color-relisten-700: #006F89;
-  --color-relisten-800: #004251;
-  --color-relisten-900: #001D24;
-  --color-relisten-950: #001114;
+  /* The Lot brand ramp: deep purple -> magenta -> sunset orange */
+  --color-relisten-DEFAULT: #7d43b8;
+  --color-relisten-50: #fbe9d4;
+  --color-relisten-100: #f6c795;
+  --color-relisten-200: #efa05c;
+  --color-relisten-300: #e37f68;
+  --color-relisten-400: #c65d9b;
+  --color-relisten-500: #9a4bb5;
+  --color-relisten-600: #7d43b8;
+  --color-relisten-700: #5b2f8f;
+  --color-relisten-800: #3d2470;
+  --color-relisten-900: #2a1a4a;
+  --color-relisten-950: #1a0f2e;
 
   /* Basic foreground colors */
   --color-foreground: #333;
