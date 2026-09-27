@@ -18,6 +18,123 @@ function friendlyError(message: string): string {
 const inputClass =
   'w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-black focus:outline-none';
 
+function ProfileEditor() {
+  const { profile, session, signOut, updateUsername, uploadAvatar } = useCloudAuth();
+  const [draft, setDraft] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const usernameValue = draft ?? profile?.username ?? '';
+  const dirty =
+    draft !== null && draft.trim().toLowerCase() !== (profile?.username ?? '').toLowerCase();
+
+  const saveUsername = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { error: updateError } = await updateUsername(usernameValue);
+      if (updateError) {
+        setError(friendlyError(updateError));
+      } else {
+        setDraft(null);
+        setNotice('Username updated.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onAvatarFile = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setNotice(null);
+    setUploading(true);
+    try {
+      const { error: uploadError } = await uploadAvatar(file);
+      if (uploadError) {
+        setError(friendlyError(uploadError));
+      } else {
+        setNotice('Profile photo updated.');
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-sm">
+      <div className="flex items-center gap-4">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+          {profile?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.avatar_url} alt="Profile photo" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-2xl font-bold text-gray-500">
+              {(profile?.username ?? '?').slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <label className="cursor-pointer text-sm underline">
+          {uploading ? 'Uploading…' : profile?.avatar_url ? 'Change photo' : 'Add a profile photo'}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => void onAvatarFile(e.target.files?.[0])}
+          />
+        </label>
+      </div>
+
+      <label className="mt-6 block">
+        <span className="mb-1 block text-xs font-semibold uppercase text-gray-500">Username</span>
+        <input
+          className={inputClass}
+          value={usernameValue}
+          maxLength={20}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError(null);
+            setNotice(null);
+          }}
+        />
+      </label>
+      {dirty && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void saveUsername()}
+          className="mt-3 cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {busy ? 'Saving…' : 'Save username'}
+        </button>
+      )}
+
+      <p className="mt-4 text-sm text-gray-600">
+        Email: <span className="text-gray-900">{session?.user?.email ?? '…'}</span>
+      </p>
+
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {notice && <p className="mt-3 text-sm text-green-700">{notice}</p>}
+
+      <p className="mt-6">
+        <button
+          type="button"
+          className="cursor-pointer rounded border border-gray-300 px-3 py-2 text-sm"
+          onClick={() => void signOut()}
+        >
+          Sign out
+        </button>
+      </p>
+    </div>
+  );
+}
+
 export default function AccountPage() {
   const { status, profile, signIn, signUp, signOut } = useCloudAuth();
   const router = useRouter();
@@ -51,20 +168,11 @@ export default function AccountPage() {
     return (
       <div className="content">
         <h1 className="mb-4">Account</h1>
-        <p>
-          Signed in as <strong>{profile?.username ?? '…'}</strong>
-        </p>
-        <p>
-          <Link href="/favorites">View your favorites →</Link>
-        </p>
-        <p>
-          <button
-            type="button"
-            className="cursor-pointer rounded border border-gray-300 px-3 py-2 text-sm"
-            onClick={() => void signOut()}
-          >
-            Sign out
-          </button>
+        <ProfileEditor />
+        <p className="mt-6">
+          <Link href="/favorites" className="underline">
+            View your favorites →
+          </Link>
         </p>
       </div>
     );

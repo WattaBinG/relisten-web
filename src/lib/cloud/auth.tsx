@@ -69,6 +69,16 @@ interface CloudAuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, username: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
+  /** Re-fetch the profile row from Supabase. */
+  refreshProfile: () => Promise<void>;
+  /** Change the username (availability-checked). */
+  updateUsername: (username: string) => Promise<{ error?: string }>;
+  /**
+   * Upload an image file as the user's avatar. Stored at
+   * `avatars/{user_id}/avatar.jpg` (requires migration 003); the public URL
+   * is saved on the profile. Returns the public URL on success.
+   */
+  uploadAvatar: (file: File) => Promise<{ error?: string; url?: string }>;
 }
 
 const CloudAuthContext = createContext<CloudAuthContextValue | null>(null);
@@ -177,9 +187,102 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
     await getSupabase().auth.signOut();
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    const sb = getSupabase();
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return;
+    const p = await ensureProfile(user.id);
+    if (p) setProfile(p);
+  }, []);
+
+  const updateUsername = useCallback(
+    async (username: string): Promise<{ error?: string }> => {
+      const clean = normalizeUsername(username);
+      if (clean.length < 3) {
+        return { error: 'Username needs at least 3 characters (letters, numbers, _).' };
+      }
+      const sb = getSupabase();
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user) return { error: 'You are not signed in.' };
+      if (profile && clean === profile.username) return {};
+      // Availability check (migration 003 lets signed-in users read usernames).
+      const { data: existing } = await sb
+        .from('profiles')
+        .select('id')
+        .eq('username', clean)
+        .maybeSingle();
+      if (existing && existing.id !== user.id) {
+        return { error: 'That username is taken — try another.' };
+      }
+      const { error } = await sb.from('profiles').update({ username: clean }).eq('id', user.id);
+      if (error) {
+        return {
+          error:
+            error.code === '23505' ? 'That username was just taken — try another.' : error.message,
+        };
+      }
+      await refreshProfile();
+      return {};
+    },
+    [profile, refreshProfile]
+  );
+
+  const uploadAvatar = useCallback(
+    async (file: File): Promise<{ error?: string; url?: string }> => {
+      const sb = getSupabase();
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user) return { error: 'You are not signed in.' };
+      const path = `${user.id}/avatar.jpg`;
+      const { error: uploadError } = await sb.storage
+        .from('avatars')
+        .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: true });
+      if (uploadError) {
+        console.warn('[cloud-auth] avatar upload failed', uploadError.message);
+        return {
+          error:
+            uploadError.message.includes('Bucket not found') ||
+            uploadError.message.includes('not found')
+              ? 'Avatar storage is not set up yet (run migration 003 in Supabase).'
+              : uploadError.message,
+        };
+      }
+      const {
+        data: { publicUrl },
+      } = sb.storage.from('avatars').getPublicUrl(path);
+      const cacheBusted = `${publicUrl}?t=${Date.now()}`;
+      const { error: profileError } = await sb
+        .from('profiles')
+        .update({ avatar_url: cacheBusted })
+        .eq('id', user.id);
+      if (profileError) {
+        console.warn('[cloud-auth] avatar profile update failed', profileError.message);
+        return { error: profileError.message };
+      }
+      await refreshProfile();
+      return { url: cacheBusted };
+    },
+    [refreshProfile]
+  );
+
   const value = useMemo<CloudAuthContextValue>(
-    () => ({ status, session, profile, signIn, signUp, signOut }),
-    [status, session, profile, signIn, signUp, signOut]
+    () => ({
+      status,
+      session,
+      profile,
+      signIn,
+      signUp,
+      signOut,
+      refreshProfile,
+      updateUsername,
+      uploadAvatar,
+    }),
+    [status, session, profile, signIn, signUp, signOut, refreshProfile, updateUsername, uploadAvatar]
   );
 
   return <CloudAuthContext.Provider value={value}>{children}</CloudAuthContext.Provider>;
