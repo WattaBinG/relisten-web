@@ -6,6 +6,7 @@ import * as Popover from '@/components/Popover';
 import RelistenAPI from '@/lib/RelistenAPI';
 import MainNavHeader from './MainNavHeader';
 import AuthButton from './auth/AuthButton';
+import BandSearch from './BandSearch';
 import { MenuIcon } from 'lucide-react';
 import { getIsInIframe } from '@/lib/isInIframe';
 
@@ -28,6 +29,13 @@ export default async function NavBar() {
           artistSlugsToName={artistSlugsToName}
           indexOverride={isInIframe ? '/wsp' : undefined}
         />
+        <div className="hidden h-full items-center pl-3 lg:flex">
+          <BandSearch
+            artists={artists.flatMap((a) =>
+              a.name && a.slug ? [{ name: a.name, slug: a.slug }] : []
+            )}
+          />
+        </div>
         <div className="player overflow-hidden text-center lg:max-w-[44vw] lg:min-w-[44vw] lg:justify-self-center xl:max-w-[38vw] xl:min-w-[38vw]">
           <Player artistSlugsToName={artistSlugsToName} />
         </div>
