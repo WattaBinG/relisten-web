@@ -115,6 +115,17 @@ export function CloudAuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // If Supabase dropped a recovery token on the wrong page (e.g. /),
+    // bounce to /reset-password so the user actually gets the form.
+    if (
+      typeof window !== 'undefined' &&
+      window.location.hash.includes('type=recovery') &&
+      !window.location.pathname.startsWith('/reset-password')
+    ) {
+      window.location.replace('/reset-password' + window.location.hash);
+      return;
+    }
+
     let mounted = true;
 
     const applySession = async (s: Session | null) => {
