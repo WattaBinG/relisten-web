@@ -3,7 +3,7 @@ export default function EmbedTestPage() {
     <iframe
       src="/wsp"
       className="mx-auto h-screen w-4/5 border-4"
-      title="Embedded Relisten"
+      title="Embedded The Lot"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
     />
   );

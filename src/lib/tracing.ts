@@ -62,7 +62,7 @@ export function initTracing() {
   const baseUrl = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'https://otlp.myfountain.io';
 
   const sdk = new NodeSDK({
-    resource: resourceFromAttributes({ [ATTR_SERVICE_NAME]: 'relisten-web' }),
+    resource: resourceFromAttributes({ [ATTR_SERVICE_NAME]: 'thelot-web' }),
     traceExporter: new OTLPTraceExporter({
       url: process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ?? `${baseUrl}/v1/traces`,
       headers,

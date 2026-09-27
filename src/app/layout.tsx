@@ -19,7 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.ico" />
-        <meta name="apple-itunes-app" content="app-id=715886886" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className={font.className}>
@@ -34,9 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 
 export const metadata = {
-  metadataBase: new URL('https://relisten.net'),
+  metadataBase: new URL('https://relisten-web.vercel.app'),
   title: {
-    template: '%s | Relisten',
-    default: 'Relisten', // a default is required when creating a template
+    template: '%s | The Lot',
+    default: 'The Lot – Live Jamband Music', // a default is required when creating a template
   },
 };

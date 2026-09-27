@@ -2,13 +2,12 @@ import Link from 'next/link';
 
 const About = () => (
   <div className="content">
-    <h1 className="mb-4">Welcome to Relisten.net</h1>
+    <h1 className="mb-4">Welcome to The Lot</h1>
 
     <p>Peruse the various bands and enjoy their extensive live catalogues for free.</p>
 
     <p>
-      We started Relisten over a decade ago to make recorded concerts more accessible. It is a
-      completely free and open source platform available on Web, iOS, Android, and Sonos.
+      The Lot is a free and open source platform for exploring recorded live concerts on the Web.
     </p>
 
     <p>
@@ -51,18 +50,20 @@ const About = () => (
 
     <p>
       This entire platform is open source at{' '}
-      <a href="https://github.com/relistennet" target="_blank" rel="noreferrer">
-        https://github.com/relistennet
+      <a href="https://github.com/WattaBinG/relisten-web" target="_blank" rel="noreferrer">
+        https://github.com/WattaBinG/relisten-web
       </a>
-      . We maintain a level of direction for our vision, but we do welcome contributions. If you are
-      interested, best to stop by <a href="/discord">our Discord</a> to discuss what you'd like to
-      contribute. Or you can always open an issue on Github with questions or bugs.
+      . If you are interested in contributing, open an issue on GitHub with questions or bugs.
     </p>
 
     <h3>Thank You & Enjoy</h3>
 
     <p>
-      The Relisten Team: <br />
+      The Lot is built on the open-source{' '}
+      <a href="https://relisten.net" target="_blank" rel="noreferrer">
+        Relisten
+      </a>{' '}
+      project by{' '}
       <a href="https://saewitz.com" target="_blank" rel="noreferrer">
         Daniel Saewitz
       </a>{' '}
@@ -70,25 +71,8 @@ const About = () => (
       <a href="https://alecgorge.com" target="_blank" rel="noreferrer">
         Alec Gorge
       </a>
-      , contact us: <a href="mailto:team@relisten.net">team@relisten.net</a>
+      .
     </p>
-
-    <br />
-
-    <h4 className="font-semibold">Significant Open Source Contributors</h4>
-
-    <ul className="mb-8">
-      <li>
-        <a href="https://github.com/Thenlie" target="_blank" rel="noreferrer">
-          Leithen Crider
-        </a>
-      </li>
-      <li>
-        <a href="https://github.com/farktronix" target="_blank" rel="noreferrer">
-          Jacob Farkas
-        </a>
-      </li>
-    </ul>
 
     <p>
       This site complies with{' '}
