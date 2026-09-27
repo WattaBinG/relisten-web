@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { normalizeUsername, useCloudAuth } from '@/lib/cloud/auth';
 import { isCloudEnabled, getSupabase } from '@/lib/cloud/supabase';
 
@@ -18,125 +18,377 @@ function friendlyError(message: string): string {
 const inputClass =
   'w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:border-black focus:outline-none';
 
-function ProfileEditor() {
-  const { profile, session, signOut, updateUsername, uploadAvatar } = useCloudAuth();
-  const [draft, setDraft] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+const sectionClass = 'rounded-xl border border-gray-200 bg-white p-5';
+const sectionTitleClass = 'mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500';
+
+function AvatarSection() {
+  const { profile, uploadAvatar } = useCloudAuth();
+  const [pending, setPending] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const usernameValue = draft ?? profile?.username ?? '';
-  const dirty =
-    draft !== null && draft.trim().toLowerCase() !== (profile?.username ?? '').toLowerCase();
+  // Build/clean up the local preview URL.
+  useEffect(() => {
+    if (!pending) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(pending);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pending]);
 
-  const saveUsername = async () => {
+  const pick = (file: File | undefined) => {
     setError(null);
     setNotice(null);
-    setBusy(true);
-    try {
-      const { error: updateError } = await updateUsername(usernameValue);
-      if (updateError) {
-        setError(friendlyError(updateError));
-      } else {
-        setDraft(null);
-        setNotice('Username updated.');
-      }
-    } finally {
-      setBusy(false);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Please pick an image file.');
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('That image is over 5 MB — pick a smaller one.');
+      return;
+    }
+    setPending(file);
   };
 
-  const onAvatarFile = async (file: File | undefined) => {
-    if (!file) return;
+  const cancel = () => {
+    setPending(null);
+    setError(null);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const save = async () => {
+    if (!pending) return;
     setError(null);
     setNotice(null);
     setUploading(true);
     try {
-      const { error: uploadError } = await uploadAvatar(file);
+      const { error: uploadError } = await uploadAvatar(pending);
       if (uploadError) {
         setError(friendlyError(uploadError));
       } else {
         setNotice('Profile photo updated.');
+        setPending(null);
+        if (fileRef.current) fileRef.current.value = '';
       }
     } finally {
       setUploading(false);
     }
   };
 
+  const current = previewUrl ?? profile?.avatar_url ?? null;
+
   return (
-    <div className="max-w-sm">
+    <section className={sectionClass}>
+      <h2 className={sectionTitleClass}>Profile photo</h2>
       <div className="flex items-center gap-4">
         <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
-          {profile?.avatar_url ? (
+          {current ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.avatar_url} alt="Profile photo" className="h-full w-full object-cover" />
+            <img src={current} alt="Profile photo" className="h-full w-full object-cover" />
           ) : (
             <span className="text-2xl font-bold text-gray-500">
               {(profile?.username ?? '?').slice(0, 1).toUpperCase()}
             </span>
           )}
         </div>
-        <label className="cursor-pointer text-sm underline">
-          {uploading ? 'Uploading…' : profile?.avatar_url ? 'Change photo' : 'Add a profile photo'}
+        <div className="flex flex-col gap-2">
+          {pending ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => void save()}
+                className="cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {uploading ? 'Uploading…' : 'Save photo'}
+              </button>
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={cancel}
+                className="cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="cursor-pointer self-start rounded border border-gray-300 px-4 py-2 text-sm"
+            >
+              {profile?.avatar_url ? 'Change photo' : 'Upload a photo'}
+            </button>
+          )}
           <input
+            ref={fileRef}
             type="file"
             accept="image/*"
             className="hidden"
-            disabled={uploading}
-            onChange={(e) => void onAvatarFile(e.target.files?.[0])}
+            onChange={(e) => pick(e.target.files?.[0])}
           />
-        </label>
+          {pending && <p className="text-xs text-gray-500">Preview — hit Save to keep it.</p>}
+        </div>
       </div>
-
-      <label className="mt-6 block">
-        <span className="mb-1 block text-xs font-semibold uppercase text-gray-500">Username</span>
-        <input
-          className={inputClass}
-          value={usernameValue}
-          maxLength={20}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            setError(null);
-            setNotice(null);
-          }}
-        />
-      </label>
-      {dirty && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void saveUsername()}
-          className="mt-3 cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {busy ? 'Saving…' : 'Save username'}
-        </button>
-      )}
-
-      <p className="mt-4 text-sm text-gray-600">
-        Email: <span className="text-gray-900">{session?.user?.email ?? '…'}</span>
-      </p>
-
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {notice && <p className="mt-3 text-sm text-green-700">{notice}</p>}
+    </section>
+  );
+}
 
-      <p className="mt-6">
+function UsernameSection() {
+  const { profile, updateUsername } = useCloudAuth();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const startEdit = () => {
+    setDraft(profile?.username ?? '');
+    setError(null);
+    setNotice(null);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setError(null);
+    setNotice(null);
+    const clean = normalizeUsername(draft);
+    if (clean.length < 3) {
+      setError('Username needs at least 3 characters (letters, numbers, _).');
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error: updateError } = await updateUsername(draft);
+      if (updateError) {
+        setError(friendlyError(updateError));
+      } else {
+        setNotice('Username updated.');
+        setEditing(false);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className={sectionClass}>
+      <h2 className={sectionTitleClass}>Username</h2>
+      {editing ? (
+        <div>
+          <input
+            className={inputClass}
+            value={draft}
+            maxLength={20}
+            autoComplete="off"
+            spellCheck={false}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setError(null);
+              setNotice(null);
+            }}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            3–20 characters: lowercase letters, numbers, _ only.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void save()}
+              className="cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setEditing(false);
+                setError(null);
+              }}
+              className="cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="text-lg font-medium">@{profile?.username ?? '…'}</span>
+          <button
+            type="button"
+            onClick={startEdit}
+            className="cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm"
+          >
+            Edit
+          </button>
+        </div>
+      )}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {notice && <p className="mt-3 text-sm text-green-700">{notice}</p>}
+    </section>
+  );
+}
+
+function EmailSection() {
+  const { session } = useCloudAuth();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const currentEmail = session?.user?.email ?? '';
+
+  const save = async () => {
+    setError(null);
+    setNotice(null);
+    const clean = draft.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (clean.toLowerCase() === currentEmail.toLowerCase()) {
+      setEditing(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error: updateError } = await getSupabase().auth.updateUser({ email: clean });
+      if (updateError) {
+        setError(friendlyError(updateError.message));
+      } else {
+        setNotice(
+          `Confirmation sent to ${clean} — click the link there to finish changing your email.`
+        );
+        setEditing(false);
+        setDraft('');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className={sectionClass}>
+      <h2 className={sectionTitleClass}>Email</h2>
+      {editing ? (
+        <div>
+          <input
+            className={inputClass}
+            type="email"
+            value={draft}
+            placeholder={currentEmail}
+            autoComplete="email"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setError(null);
+              setNotice(null);
+            }}
+          />
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void save()}
+              className="cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {busy ? 'Sending…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setEditing(false);
+                setError(null);
+                setDraft('');
+              }}
+              className="cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-4">
+          <span className="truncate text-sm">{currentEmail || '…'}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft('');
+              setError(null);
+              setNotice(null);
+              setEditing(true);
+            }}
+            className="cursor-pointer shrink-0 rounded border border-gray-300 px-4 py-2 text-sm"
+          >
+            Change
+          </button>
+        </div>
+      )}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {notice && <p className="mt-3 text-sm text-green-700">{notice}</p>}
+    </section>
+  );
+}
+
+function SettingsMenu() {
+  const { signOut } = useCloudAuth();
+
+  return (
+    <div className="flex max-w-xl flex-col gap-4">
+      <AvatarSection />
+      <UsernameSection />
+      <EmailSection />
+
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>Password</h2>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-gray-600">Change your password via a secure email link.</span>
+          <Link
+            href="/reset-password"
+            className="shrink-0 rounded border border-gray-300 px-4 py-2 text-sm"
+          >
+            Change
+          </Link>
+        </div>
+      </section>
+
+      <section className={sectionClass}>
+        <h2 className={sectionTitleClass}>Library</h2>
+        <Link href="/favorites" className="text-sm underline">
+          View your favorites →
+        </Link>
+      </section>
+
+      <div>
         <button
           type="button"
-          className="cursor-pointer rounded border border-gray-300 px-3 py-2 text-sm"
+          className="cursor-pointer rounded border border-gray-300 bg-white px-4 py-2 text-sm"
           onClick={() => void signOut()}
         >
           Sign out
         </button>
-      </p>
+      </div>
     </div>
   );
 }
 
 export default function AccountPage() {
-  const { status, profile, signIn, signUp, signOut } = useCloudAuth();
+  const { status, signIn, signUp } = useCloudAuth();
   const router = useRouter();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [username, setUsername] = useState('');
@@ -169,13 +421,8 @@ export default function AccountPage() {
   if (status === 'authed') {
     return (
       <div className="content">
-        <h1 className="mb-4">Account</h1>
-        <ProfileEditor />
-        <p className="mt-6">
-          <Link href="/favorites" className="underline">
-            View your favorites →
-          </Link>
-        </p>
+        <h1 className="mb-6">Account settings</h1>
+        <SettingsMenu />
       </div>
     );
   }
@@ -198,7 +445,8 @@ export default function AccountPage() {
     }
   };
 
-  const submit = async (e: FormEvent) => {    e.preventDefault();
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
     setError(null);
     setBusy(true);
     try {
