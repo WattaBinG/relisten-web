@@ -35,6 +35,8 @@ export type FavoriteEntityType =
 export interface ProfileRow {
   id: string;
   username: string;
+  /** Public HTTPS URL of the avatar image (null until the user uploads one). */
+  avatar_url: string | null;
   created_at: string;
 }
 
