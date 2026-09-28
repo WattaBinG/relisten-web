@@ -6,7 +6,7 @@ import MobileSearch from './MobileSearch';
 import * as Popover from '@/components/Popover';
 import RelistenAPI from '@/lib/RelistenAPI';
 import MainNavHeader from './MainNavHeader';
-import AuthButton from './auth/AuthButton';
+import UserMenu from './auth/UserMenu';
 import BandSearch from './BandSearch';
 import { MenuIcon } from 'lucide-react';
 import { getIsInIframe } from '@/lib/isInIframe';
@@ -29,8 +29,11 @@ export default async function NavBar() {
 
   return (
     <>
-      {/* Sticky so the logo (home), band search, and player stay reachable while scrolling */}
-      <div className="navigation text-foreground relative sticky top-0 z-40 grid h-[50px] max-h-[50px] min-h-[50px] grid-cols-[auto_1fr_auto] border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:px-4">
+      {/* Sticky so the account menu, logo, band search, and player stay reachable while scrolling */}
+      <div className="navigation text-foreground relative sticky top-0 z-40 grid h-[68px] max-h-[68px] min-h-[68px] grid-cols-[auto_auto_1fr_auto] border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] lg:px-4">
+        <div className="flex h-full items-center">
+          <UserMenu />
+        </div>
         <MainNavHeader
           artistSlugsToName={artistSlugsToName}
           indexOverride={isInIframe ? '/wsp' : undefined}
@@ -60,12 +63,6 @@ export default async function NavBar() {
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>
-        </div>
-
-        <div className="nav hidden h-full min-w-0 cursor-pointer items-center justify-self-end text-center font-medium whitespace-nowrap xl:flex">
-          <div className="flex h-full items-center">
-            <AuthButton />
-          </div>
         </div>
       </div>
       <ImageNavStrip />
