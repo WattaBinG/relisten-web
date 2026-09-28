@@ -16,13 +16,19 @@ import { toast } from 'sonner';
  * "Add show to playlist" button for a show page. Adds every track of the
  * active source to the chosen playlist (or a new one). Renders nothing unless
  * signed in and given at least one track.
+ *
+ * `defaultName` seeds the new-playlist name field (e.g. "Ween 9-16-16 Alpine
+ * Theatre") so creating can be one Enter keypress; the text starts selected
+ * so typing replaces it.
  */
 export default function AddShowToPlaylistButton({
   tracks,
   showLabel,
+  defaultName,
 }: {
   tracks: NewTrackInput[];
   showLabel: string;
+  defaultName?: string;
 }) {
   const { status, session } = useCloudAuth();
   const userId = session?.user?.id ?? null;
@@ -31,8 +37,22 @@ export default function AddShowToPlaylistButton({
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [showNew, setShowNew] = useState(false);
+  const nameSeed = (defaultName ?? showLabel ?? '').trim();
 
   if (status !== 'authed' || !userId || tracks.length === 0) return null;
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setShowNew(false);
+      setNewName('');
+    }
+  };
+
+  const openNewPlaylist = () => {
+    setNewName(nameSeed);
+    setShowNew(true);
+  };
 
   const addTo = async (playlistId: string, playlistName: string) => {
     setAdding(true);
@@ -71,7 +91,7 @@ export default function AddShowToPlaylistButton({
   };
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
         <button
           type="button"
@@ -123,6 +143,7 @@ export default function AddShowToPlaylistButton({
                 autoFocus
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') createAndAdd();
                   if (e.key === 'Escape') setShowNew(false);
@@ -143,7 +164,7 @@ export default function AddShowToPlaylistButton({
           ) : (
             <button
               type="button"
-              onClick={() => setShowNew(true)}
+              onClick={openNewPlaylist}
               className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm font-medium hover:bg-gray-100"
             >
               <Plus size={14} /> New playlist
