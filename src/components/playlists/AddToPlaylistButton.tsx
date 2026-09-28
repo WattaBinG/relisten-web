@@ -16,8 +16,18 @@ import { toast } from 'sonner';
  * "+" button shown on track rows. Opens a popover to add the track to one of
  * the user's playlists, or create a new one inline. stopPropagation keeps the
  * parent Row link from navigating.
+ *
+ * `defaultName` seeds the new-playlist name field (defaults to the song
+ * title) so creating can be one Enter keypress; the text starts selected so
+ * typing replaces it.
  */
-export default function AddToPlaylistButton({ track }: { track: NewTrackInput }) {
+export default function AddToPlaylistButton({
+  track,
+  defaultName,
+}: {
+  track: NewTrackInput;
+  defaultName?: string;
+}) {
   const { status, session } = useCloudAuth();
   const userId = session?.user?.id ?? null;
   const { playlists, refresh } = useMyPlaylists();
@@ -25,8 +35,22 @@ export default function AddToPlaylistButton({ track }: { track: NewTrackInput })
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [showNew, setShowNew] = useState(false);
+  const nameSeed = (defaultName ?? track.song_title ?? '').trim();
 
   if (status !== 'authed' || !userId) return null;
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setShowNew(false);
+      setNewName('');
+    }
+  };
+
+  const openNewPlaylist = () => {
+    setNewName(nameSeed);
+    setShowNew(true);
+  };
 
   const addTo = async (playlistId: string, playlistName: string) => {
     setAdding(true);
@@ -61,7 +85,7 @@ export default function AddToPlaylistButton({ track }: { track: NewTrackInput })
   };
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
         <button
           type="button"
@@ -113,6 +137,7 @@ export default function AddToPlaylistButton({ track }: { track: NewTrackInput })
                 autoFocus
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') createAndAdd();
                   if (e.key === 'Escape') setShowNew(false);
@@ -133,7 +158,7 @@ export default function AddToPlaylistButton({ track }: { track: NewTrackInput })
           ) : (
             <button
               type="button"
-              onClick={() => setShowNew(true)}
+              onClick={openNewPlaylist}
               className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm font-medium hover:bg-gray-100"
             >
               <Plus size={14} /> New playlist
