@@ -32,7 +32,14 @@ export async function GET(request: NextRequest) {
     // Prefer an exact (case-insensitive) name match, else take the top result.
     const exact = artists.find((a) => a.name?.toLowerCase() === key);
     const best = exact ?? artists[0];
-    const url: string | null = best?.picture_medium ?? null;
+    const raw: string | null = best?.picture_medium ?? null;
+    // Deezer returns a generic grey-silhouette placeholder (empty image hash)
+    // for artists with no photo — treat it as "no image" so the initials
+    // fallback renders instead.
+    const url: string | null =
+      raw && !/images\/artist\/\//.test(raw) && !/250x250-000000-80-0-0/.test(raw)
+        ? raw
+        : null;
 
     cache.set(key, { url, at: Date.now() });
     return NextResponse.json({ imageUrl: url });
