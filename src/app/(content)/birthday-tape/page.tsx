@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCloudAuth } from '@/lib/cloud/auth';
 import {
   formatBirthdayMonthDay,
@@ -9,6 +9,13 @@ import {
   useFavoriteArtistUuids,
 } from '@/lib/cloud/birthday';
 import { addTrackToPlaylist, createPlaylist, type NewTrackInput } from '@/lib/cloud/playlists';
+import {
+  getReviews,
+  getSetlistByDate,
+  getShowByDate,
+  type PhishnetReview,
+  type PhishnetSetlistRow,
+} from '@/lib/cloud/phishnet';
 import { API_DOMAIN } from '@/lib/constants';
 
 interface CatalogArtist {
@@ -29,6 +36,211 @@ interface TapeEntry {
   artistSlug: string;
   artistName: string;
   show: OnDateShow;
+}
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** True for a real calendar month/day (Feb 29 allowed — leap birthdays exist). */
+function isValidMonthDay(month: number, day: number): boolean {
+  return (
+    Number.isInteger(month) &&
+    Number.isInteger(day) &&
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= DAYS_IN_MONTH[month - 1]
+  );
+}
+
+/** {month: 7, day: 4} -> "July 4". */
+function formatMonthDay(md: { month: number; day: number }): string {
+  return `${MONTH_NAMES[md.month - 1]} ${md.day}`;
+}
+
+interface HistoryItem {
+  year: number | null;
+  text: string;
+}
+
+/** In-memory cache of the Wikipedia on-this-day feed, keyed by month/day. */
+const historyCache = new Map<string, HistoryItem[]>();
+
+/**
+ * Wikipedia's free on-this-day feed (no key needed). Births and notable
+ * events only — deaths are skipped on purpose (it's a birthday feature).
+ */
+async function fetchOnThisDay(month: number, day: number): Promise<HistoryItem[]> {
+  const key = `${month}-${day}`;
+  const cached = historyCache.get(key);
+  if (cached) return cached;
+  const mm = String(month).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  const res = await fetch(
+    `https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/all/${mm}/${dd}`
+  );
+  if (!res.ok) throw new Error('history feed failed');
+  const json = (await res.json()) as {
+    births?: { text?: string; year?: number }[];
+    selected?: { text?: string; year?: number }[];
+    events?: { text?: string; year?: number }[];
+  };
+  const items: HistoryItem[] = [];
+  const push = (arr?: { text?: string; year?: number }[]) => {
+    for (const e of arr ?? []) {
+      if (items.length >= 5) break;
+      if (e.text) items.push({ year: e.year ?? null, text: e.text });
+    }
+  };
+  push(json.births);
+  push(json.selected);
+  push(json.events);
+  historyCache.set(key, items);
+  return items;
+}
+
+function truncate(text: string, max: number): string {
+  const t = text.trim();
+  return t.length > max ? `${t.slice(0, max).trimEnd()}...` : t;
+}
+
+/** Strip HTML tags and collapse whitespace (review bodies contain markup). */
+function plainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Expandable phish.net intel for a Phish show: setlist + fan reviews.
+ * Fetched live only when the user expands; held in component memory only and
+ * discarded on unmount (phish.net ToS: no persistence). Attribution shown
+ * in the footer.
+ */
+function PhishIntel({ showDate }: { showDate: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [setlist, setSetlist] = useState<PhishnetSetlistRow[] | null>(null);
+  const [reviews, setReviews] = useState<PhishnetReview[] | null>(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
+
+  const toggle = () => {
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    if (setlist || loading || failed) return;
+    setLoading(true);
+    (async () => {
+      try {
+        const [showRows, setlistRows] = await Promise.all([
+          getShowByDate(showDate),
+          getSetlistByDate(showDate),
+        ]);
+        const showid = showRows[0]?.showid ?? setlistRows[0]?.showid;
+        const revs = showid ? await getReviews(String(showid)) : [];
+        if (!cancelledRef.current) {
+          setSetlist(setlistRows);
+          setReviews(revs);
+        }
+      } catch (e) {
+        console.warn('phish intel failed', e);
+        if (!cancelledRef.current) setFailed(true);
+      } finally {
+        if (!cancelledRef.current) setLoading(false);
+      }
+    })();
+  };
+
+  // Silent on failure: hide the section rather than showing an error.
+  if (failed) return null;
+
+  // Group rows into sets and render each the way phish.net does:
+  // "Mike's Song -> I Am Hydrogen > Weekapaug Groove, Harry Hood". Rows arrive
+  // in position order; trans_mark is the separator that follows each song.
+  const sets: { label: string; line: string }[] = [];
+  for (const row of setlist ?? []) {
+    if (!row.set || !row.song) continue;
+    const label = row.set.toLowerCase() === 'e' ? 'Encore' : `Set ${row.set}`;
+    let group = sets.find((g) => g.label === label);
+    if (!group) {
+      group = { label, line: '' };
+      sets.push(group);
+    }
+    const mark = (row.trans_mark ?? '').trim();
+    if (group.line.length > 0) group.line += ' ';
+    group.line += row.song;
+    if (mark) group.line += ` ${mark}`;
+  }
+  for (const s of sets) s.line = s.line.trim();
+
+  return (
+    <div className="mx-auto w-full max-w-xl">
+      <button
+        type="button"
+        onClick={toggle}
+        className="block w-full cursor-pointer rounded-b-2xl bg-neutral-900 px-4 py-2"
+      >
+        <span className="block text-center text-xs font-semibold text-orange-300">
+          {expanded ? 'Hide show intel -' : 'Show intel +'}
+        </span>
+      </button>
+      {expanded && (
+        <div className="rounded-b-2xl bg-neutral-900 px-4 pb-3">
+          {loading && (
+            <div className="flex items-center justify-center py-4">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-orange-300 border-t-transparent" />
+            </div>
+          )}
+          {!loading && setlist && (
+            <>
+              {sets.length > 0 ? (
+                sets.map((s) => (
+                  <div key={s.label} className="pb-2">
+                    <div className="text-xs font-bold tracking-widest text-gray-400 uppercase">
+                      {s.label}
+                    </div>
+                    <div className="mt-0.5 text-sm text-gray-200">{s.line}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="pb-2 text-sm text-gray-500">No setlist on file for this show.</p>
+              )}
+              {reviews && reviews.length > 0 && (
+                <div className="pt-1">
+                  <div className="mb-1 text-xs font-bold tracking-widest text-gray-400 uppercase">
+                    Fans said
+                  </div>
+                  {reviews.slice(0, 3).map((r) => (
+                    <div key={r.reviewid} className="pb-2">
+                      <div className="text-xs font-semibold text-orange-200">{r.username}</div>
+                      <p className="mt-0.5 text-sm text-gray-300">
+                        {truncate(plainText(r.review_text ?? ''), 240)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="pt-1 text-right text-[11px] text-gray-500">Data: phish.net</p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Bands to use when the user hasn't favorited anyone yet. */
@@ -71,19 +283,66 @@ export default function BirthdayTapePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedPlaylistId, setSavedPlaylistId] = useState<string | null>(null);
   const [saveProgress, setSaveProgress] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryItem[] | null>(null);
 
   const monthDay = useMemo(() => getMonthDay(profile?.birthday), [profile?.birthday]);
   const birthdayLabel = useMemo(() => formatBirthdayMonthDay(profile?.birthday), [profile?.birthday]);
 
+  // Date explorer: null = following the user's birthday. The user can pick any
+  // month/day to explore; tapes + history re-fetch for the picked date.
+  const [picked, setPicked] = useState<{ month: number; day: number } | null>(null);
+  const [monthText, setMonthText] = useState('');
+  const [dayText, setDayText] = useState('');
+  const [dateError, setDateError] = useState<string | null>(null);
+  const inputsInitialized = useRef(false);
+
+  const activeDate = useMemo(() => picked ?? monthDay, [picked, monthDay]);
+  const exploring =
+    picked != null &&
+    monthDay != null &&
+    (picked.month !== monthDay.month || picked.day !== monthDay.day);
+  const activeLabel = exploring && picked ? formatMonthDay(picked) : birthdayLabel;
+
+  // Seed the explorer inputs from the birthday once it loads.
   useEffect(() => {
-    if (status !== 'authed' || favLoading || !monthDay) {
-      if (status === 'authed' && !favLoading && !monthDay) setLoading(false);
+    if (!inputsInitialized.current && monthDay) {
+      inputsInitialized.current = true;
+      setMonthText(String(monthDay.month));
+      setDayText(String(monthDay.day));
+    }
+  }, [monthDay]);
+
+  const exploreDate = () => {
+    const m = Number(monthText);
+    const d = Number(dayText);
+    if (!isValidMonthDay(m, d)) {
+      setDateError('Enter a valid month and day (MM / DD).');
       return;
     }
+    setDateError(null);
+    setPicked({ month: m, day: d });
+  };
+
+  const resetToBirthday = () => {
+    setPicked(null);
+    setDateError(null);
+    if (monthDay) {
+      setMonthText(String(monthDay.month));
+      setDayText(String(monthDay.day));
+    }
+  };
+
+  useEffect(() => {
+    if (status !== 'authed' || favLoading || !activeDate) {
+      if (status === 'authed' && !favLoading && !activeDate) setLoading(false);
+      return;
+    }
+    const date = activeDate;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setLoadError(null);
+      setHistory(null);
       try {
         // 1. Catalog -> uuid/slug/name map
         const artistsRes = await fetch(`${API_DOMAIN}/api/v3/artists`);
@@ -110,7 +369,7 @@ export default function BirthdayTapePage() {
         const settled = await Promise.allSettled(
           targets.map(async (a): Promise<TapeEntry[]> => {
             const res = await fetch(
-              `${API_DOMAIN}/api/v2/artists/${a.slug}/shows/on-date?month=${monthDay.month}&day=${monthDay.day}`
+              `${API_DOMAIN}/api/v2/artists/${a.slug}/shows/on-date?month=${date.month}&day=${date.day}`
             );
             if (!res.ok) return [];
             const shows = (await res.json()) as OnDateShow[];
@@ -138,10 +397,18 @@ export default function BirthdayTapePage() {
         if (!cancelled) setLoading(false);
       }
     })();
+    // "On this day in history" strip — silent on failure, hidden if it fails.
+    fetchOnThisDay(date.month, date.day)
+      .then((items) => {
+        if (!cancelled && items.length > 0) setHistory(items);
+      })
+      .catch(() => {
+        /* hide the section */
+      });
     return () => {
       cancelled = true;
     };
-  }, [status, favLoading, favUuids, monthDay]);
+  }, [status, favLoading, favUuids, activeDate]);
 
   const toggle = (uuid: string) => {
     setSelected((prev) => {
@@ -156,7 +423,13 @@ export default function BirthdayTapePage() {
     setSaveError(null);
     setSavedPlaylistId(null);
     const userId = session?.user?.id;
-    if (!userId || !birthdayLabel) return;
+    const tapeName =
+      exploring && picked
+        ? `Tape — ${formatMonthDay(picked)}`
+        : birthdayLabel
+          ? `My Birthday Tape — ${birthdayLabel}`
+          : null;
+    if (!userId || !tapeName) return;
     const chosen = entries.filter((e) => e.show.uuid && selected.has(e.show.uuid));
     if (chosen.length === 0) {
       setSaveError('Pick at least one show first.');
@@ -164,7 +437,7 @@ export default function BirthdayTapePage() {
     }
     setSaving(true);
     try {
-      const playlist = await createPlaylist(userId, `My Birthday Tape — ${birthdayLabel}`);
+      const playlist = await createPlaylist(userId, tapeName);
       if (!playlist) throw new Error('Could not create the playlist.');
       let added = 0;
       for (const entry of chosen) {
@@ -226,18 +499,73 @@ export default function BirthdayTapePage() {
 
   return (
     <div className="content">
-      <h1 className="mb-2 text-center">🎂 Your Birthday Tape</h1>
-      <p className="mb-6 text-center text-sm text-gray-600">
-        Every show your favorite bands played on <strong>{birthdayLabel}</strong> — in any year.
+      <h1 className="mb-2 text-center">
+        {exploring ? `🎂 Tape — ${activeLabel}` : '🎂 Your Birthday Tape'}
+      </h1>
+      <p className="mb-4 text-center text-sm text-gray-600">
+        Every show your favorite bands played on <strong>{activeLabel}</strong> — in any year.
         Pick the ones you want, then save them as a playlist.
       </p>
+
+      <div className="mb-6 flex items-center justify-center gap-2">
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={2}
+          placeholder="MM"
+          aria-label="Month"
+          value={monthText}
+          onChange={(e) => {
+            setMonthText(e.target.value);
+            setDateError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') exploreDate();
+          }}
+          className="w-14 rounded-lg border border-gray-300 px-3 py-2 text-center text-sm"
+        />
+        <span className="text-lg text-gray-400">/</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={2}
+          placeholder="DD"
+          aria-label="Day"
+          value={dayText}
+          onChange={(e) => {
+            setDayText(e.target.value);
+            setDateError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') exploreDate();
+          }}
+          className="w-14 rounded-lg border border-gray-300 px-3 py-2 text-center text-sm"
+        />
+        <button
+          type="button"
+          onClick={exploreDate}
+          className="cursor-pointer rounded-lg bg-black px-4 py-2 text-sm font-medium text-white"
+        >
+          Explore
+        </button>
+        {exploring && (
+          <button
+            type="button"
+            onClick={resetToBirthday}
+            className="cursor-pointer px-2 py-2 text-sm text-gray-500 underline"
+          >
+            My birthday
+          </button>
+        )}
+      </div>
+      {dateError && <p className="mb-4 text-center text-sm text-red-600">{dateError}</p>}
 
       {loading && <p className="text-sm text-gray-500">Digging through the archives…</p>}
       {loadError && <p className="text-sm text-red-600">{loadError}</p>}
 
       {!loading && !loadError && entries.length === 0 && (
         <p className="text-sm text-gray-600">
-          No shows found on {birthdayLabel} for your bands yet. Try favoriting more artists on
+          No shows found on {activeLabel} for your bands yet. Try favoriting more artists on
           their pages — your tape rebuilds from your favorites.
         </p>
       )}
@@ -270,6 +598,9 @@ export default function BirthdayTapePage() {
               const uuid = entry.show.uuid ?? '';
               const url = showUrl(entry.artistSlug, entry.show.display_date);
               const checked = selected.has(uuid);
+              const showDate = entry.show.display_date ?? '';
+              const isPhish =
+                entry.artistSlug === 'phish' && /^\d{4}-\d{2}-\d{2}$/.test(showDate);
               const venueBits = [entry.show.venue?.name ?? 'Unknown venue', entry.show.venue?.location]
                 .filter(Boolean)
                 .join(' — ');
@@ -329,10 +660,27 @@ export default function BirthdayTapePage() {
                       </Link>
                     </div>
                   )}
+                  {isPhish && <PhishIntel showDate={showDate} />}
                 </li>
               );
             })}
           </ul>
+
+          {history && history.length > 0 && (
+            <div className="mx-auto mt-8 w-full max-w-xl">
+              <h2 className="mb-1 text-xs font-bold tracking-widest text-gray-500 uppercase">
+                Also on this day…
+              </h2>
+              {history.map((h, i) => (
+                <div key={i} className="flex flex-row py-1.5">
+                  <span className="w-14 shrink-0 text-sm font-semibold text-orange-600">
+                    {h.year ?? ''}
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm text-gray-600">{h.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
