@@ -125,6 +125,48 @@ export async function addTrackToPlaylist(
   return !error;
 }
 
+/**
+ * Append many tracks in one shot (e.g. a whole show). Positions continue from
+ * the current max. Returns the number of tracks inserted.
+ */
+export async function addTracksToPlaylist(
+  playlistId: string,
+  tracks: NewTrackInput[]
+): Promise<number> {
+  if (!isCloudEnabled || tracks.length === 0) return 0;
+  const { data: existing } = await getSupabase()
+    .from('playlist_tracks')
+    .select('position')
+    .eq('playlist_id', playlistId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let position = ((existing?.position as number | undefined) ?? -1) + 1;
+  const rows = tracks.map((track) => ({
+    playlist_id: playlistId,
+    position: position++,
+    artist_name: track.artist_name,
+    artist_slug: track.artist_slug,
+    show_uuid: track.show_uuid,
+    show_date: track.show_date,
+    venue_name: track.venue_name ?? null,
+    source_uuid: track.source_uuid,
+    track_uuid: track.track_uuid,
+    song_title: track.song_title,
+    track_position: track.track_position ?? null,
+    duration_seconds: track.duration_seconds ?? null,
+  }));
+  const { data, error } = await getSupabase()
+    .from('playlist_tracks')
+    .insert(rows)
+    .select('id');
+  if (error) {
+    console.error('addTracksToPlaylist failed', error);
+    return 0;
+  }
+  return data?.length ?? 0;
+}
+
 export async function removeTrackFromPlaylist(trackId: string): Promise<boolean> {
   if (!isCloudEnabled) return false;
   const { error } = await getSupabase().from('playlist_tracks').delete().eq('id', trackId);
