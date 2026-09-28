@@ -226,8 +226,8 @@ export default function BirthdayTapePage() {
 
   return (
     <div className="content">
-      <h1 className="mb-2">🎂 Your Birthday Tape</h1>
-      <p className="mb-6 text-sm text-gray-600">
+      <h1 className="mb-2 text-center">🎂 Your Birthday Tape</h1>
+      <p className="mb-6 text-center text-sm text-gray-600">
         Every show your favorite bands played on <strong>{birthdayLabel}</strong> — in any year.
         Pick the ones you want, then save them as a playlist.
       </p>
@@ -244,7 +244,7 @@ export default function BirthdayTapePage() {
 
       {!loading && entries.length > 0 && (
         <>
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-6 flex items-center justify-center gap-3">
             <button
               type="button"
               disabled={saving}
@@ -255,9 +255,9 @@ export default function BirthdayTapePage() {
             </button>
             {saveProgress && <span className="text-xs text-gray-500">{saveProgress}</span>}
           </div>
-          {saveError && <p className="mb-4 text-sm text-red-600">{saveError}</p>}
+          {saveError && <p className="mb-4 text-center text-sm text-red-600">{saveError}</p>}
           {savedPlaylistId && (
-            <p className="mb-4 text-sm text-green-700">
+            <p className="mb-4 text-center text-sm text-green-700">
               Tape saved!{' '}
               <Link href={`/playlists/${savedPlaylistId}`} className="underline">
                 Open your playlist →
@@ -265,41 +265,70 @@ export default function BirthdayTapePage() {
             </p>
           )}
 
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col items-center gap-8">
             {entries.map((entry) => {
               const uuid = entry.show.uuid ?? '';
               const url = showUrl(entry.artistSlug, entry.show.display_date);
               const checked = selected.has(uuid);
+              const venueBits = [entry.show.venue?.name ?? 'Unknown venue', entry.show.venue?.location]
+                .filter(Boolean)
+                .join(' — ');
               return (
-                <li
-                  key={`${entry.artistSlug}-${uuid}`}
-                  className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggle(uuid)}
-                    aria-label={`Include ${entry.artistName} ${entry.show.display_date}`}
-                    className="h-4 w-4 shrink-0 cursor-pointer"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">
-                      {url ? (
-                        <Link href={url} className="hover:underline">
+                <li key={`${entry.artistSlug}-${uuid}`} className="ml-0 w-full max-w-xl list-none">
+                  <button
+                    type="button"
+                    onClick={() => toggle(uuid)}
+                    aria-pressed={checked}
+                    aria-label={`${checked ? 'Remove' : 'Include'} ${entry.artistName} ${entry.show.display_date}`}
+                    className={`block w-full cursor-pointer rounded-2xl text-left transition ${
+                      checked ? 'ring-4 ring-orange-500' : 'opacity-80 ring-1 ring-black/30 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="rounded-2xl bg-neutral-900 px-5 pt-4 pb-4 shadow-xl">
+                      <div className="flex items-center justify-around">
+                        {[0, 1].map((r) => (
+                          <div key={r} className="rounded bg-black/60 px-6 py-1">
+                            <div
+                              className="h-10 w-10 rounded-full"
+                              style={{
+                                background:
+                                  'repeating-conic-gradient(#ddd6c2 0deg 24deg, #1c1c1c 24deg 30deg)',
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="relative mt-3 overflow-hidden rounded bg-[#f3ecd9] px-4 pt-5 pb-3">
+                        <div className="absolute inset-x-0 top-0 h-2.5 bg-red-500" />
+                        <div className="absolute inset-x-0 top-2.5 h-1.5 bg-orange-400" />
+                        <div
+                          className="text-xl leading-snug font-bold text-neutral-800"
+                          style={{ fontFamily: "'Segoe Print','Bradley Hand','Comic Sans MS',cursive" }}
+                        >
                           {entry.artistName} — {formatShowDate(entry.show.display_date)}
-                        </Link>
-                      ) : (
-                        <>
-                          {entry.artistName} — {formatShowDate(entry.show.display_date)}
-                        </>
-                      )}
+                        </div>
+                        <div
+                          className="mt-1 text-sm text-neutral-600"
+                          style={{ fontFamily: "'Segoe Print','Bradley Hand','Comic Sans MS',cursive" }}
+                        >
+                          {venueBits}
+                          {entry.show.source_count ? ` · ${entry.show.source_count} tapes` : ''}
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between px-1 text-[11px] font-bold tracking-[0.2em] text-neutral-400">
+                        <span>90</span>
+                        <span>{checked ? '◉ DUBBED IN' : '○ DUB ME'}</span>
+                        <span>A SIDE</span>
+                      </div>
                     </div>
-                    <div className="truncate text-xs text-gray-500">
-                      {entry.show.venue?.name ?? 'Unknown venue'}
-                      {entry.show.venue?.location ? ` — ${entry.show.venue.location}` : ''}
-                      {entry.show.source_count ? ` · ${entry.show.source_count} tapes` : ''}
+                  </button>
+                  {url && (
+                    <div className="mt-1 text-center">
+                      <Link href={url} className="text-xs text-gray-500 hover:underline">
+                        Open show page →
+                      </Link>
                     </div>
-                  </div>
+                  )}
                 </li>
               );
             })}
