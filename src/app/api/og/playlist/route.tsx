@@ -31,6 +31,8 @@ export async function GET(request: Request) {
   const name = pl.name as string;
   const trackCount = count ?? 0;
   const byline = owner?.username ? `@${owner.username}` : 'The Lot';
+  // Tiered sizing so full names fit on one line instead of truncating.
+  const nameSize = name.length <= 24 ? 76 : name.length <= 40 ? 60 : 46;
 
   return new ImageResponse(
     <div
@@ -53,7 +55,7 @@ export async function GET(request: Request) {
         <div
           tw="text-white font-bold"
           style={{
-            fontSize: name.length > 32 ? 56 : 76,
+            fontSize: nameSize,
             lineHeight: 1.08,
             letterSpacing: '-0.02em',
             overflow: 'hidden',
