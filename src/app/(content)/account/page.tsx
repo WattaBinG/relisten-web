@@ -580,13 +580,17 @@ function LoginMethodsSection() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = async () => {
+    setLoadError(null);
     try {
       const { data, error } = await getSupabase().auth.getUserIdentities();
-      if (!error && data) setIdentities(data.identities as IdentityRow[]);
-    } catch {
-      /* leave as-is on failure */
+      if (error) setLoadError(friendlyError(error.message));
+      else if (data) setIdentities(data.identities as IdentityRow[]);
+      else setLoadError('Could not load your login methods.');
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Could not load your login methods.');
     }
   };
 
@@ -700,7 +704,18 @@ function LoginMethodsSection() {
       <p className="mb-2 text-sm text-gray-600">
         Connect more ways to sign in — every method opens this same account.
       </p>
-      {identities === null ? (
+      {loadError ? (
+        <div className="py-2">
+          <p className="text-sm text-red-600">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="mt-2 cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm"
+          >
+            Try again
+          </button>
+        </div>
+      ) : identities === null ? (
         <p className="py-2 text-sm text-gray-500">Loading…</p>
       ) : (
         <div>
