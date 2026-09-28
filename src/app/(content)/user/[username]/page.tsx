@@ -117,7 +117,7 @@ export default function UserProfilePage() {
             📼 Tape Box{' '}
             <span className="font-normal text-gray-500">({tapeCount})</span>
           </h2>
-          <TapeShelf tapes={tapes} tapeWidth={220} />
+          <TapeShelf tapes={tapes} />
         </section>
       )}
 
