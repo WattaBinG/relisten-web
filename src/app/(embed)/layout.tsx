@@ -20,7 +20,7 @@ export default async function EmbedLayout({ children }: { children: ReactNode })
     <Flex column className="h-screen bg-white">
       <Toaster id="audio-error" position="top-center" offset="54px" richColors closeButton />
       <EmbedHeader />
-      <div className="flex h-[50px] min-h-[50px] items-center justify-center border-b border-gray-300 bg-white">
+      <div className="flex h-[68px] min-h-[68px] items-center justify-center border-b border-gray-300 bg-white">
         <div className="w-full max-w-2xl">
           <Player artistSlugsToName={artistSlugsToName} />
         </div>
