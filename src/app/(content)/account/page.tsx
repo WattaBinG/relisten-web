@@ -656,7 +656,7 @@ export default function AccountPage() {
 
   return (
     <div className="content">
-      <h1 className="mb-4">{mode === 'signup' ? 'Create your account' : 'Sign in'}</h1>
+      <h1 className="mb-4">{mode === 'signup' ? 'First time in the lot?' : 'Welcome back to the lot'}</h1>
       <p className="text-sm text-gray-600">
         One account for The Lot everywhere — your username and favorites follow you between the
         app and this site.
