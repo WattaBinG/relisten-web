@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { normalizeUsername, useCloudAuth } from '@/lib/cloud/auth';
-import { getMonthDay, updateBirthdaySettings } from '@/lib/cloud/birthday';
+import { formatBirthdayMonthDay, getMonthDay, updateBirthdaySettings } from '@/lib/cloud/birthday';
 import { isCloudEnabled, getSupabase } from '@/lib/cloud/supabase';
 
 function friendlyError(message: string): string {
@@ -426,7 +426,8 @@ function BirthdaySection() {
           <span>
             Show on my profile
             <span className="block text-xs text-gray-500">
-              Others see &ldquo;🎂 January 26&rdquo; on your page. Off by default.
+              Others see &ldquo;🎂 {formatBirthdayMonthDay(profile?.birthday) ?? 'January 26'}&rdquo;
+              on your page. Off by default.
             </span>
           </span>
           <button
