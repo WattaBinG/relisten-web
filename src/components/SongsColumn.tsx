@@ -120,14 +120,26 @@ const SongsColumn = (props: Props) => {
           : 'Songs'
       }
     >
-      {showTracks.length > 0 && (
-        <div className="border-b border-gray-100 px-2 py-2">
-          <AddShowToPlaylistButton
-            tracks={showTracks}
-            showLabel={`${artistName || props.artistSlug} ${displayDate ?? ''}`.trim()}
-          />
-        </div>
-      )}
+      {showTracks.length > 0 &&
+        (() => {
+          // New-playlist name seed: "Ween 9-16-16 Alpine Theatre"
+          const shortDate =
+            props.year && props.month && props.day
+              ? `${removeLeadingZero(props.month)}-${removeLeadingZero(props.day)}-${props.year.slice(2)}`
+              : (displayDate ?? '');
+          const venueName = props.show?.venue?.name;
+          const showNameSeed =
+            `${artistName || props.artistSlug} ${shortDate}${venueName ? ` ${venueName}` : ''}`.trim();
+          return (
+            <div className="border-b border-gray-100 px-2 py-2">
+              <AddShowToPlaylistButton
+                tracks={showTracks}
+                showLabel={showNameSeed}
+                defaultName={showNameSeed}
+              />
+            </div>
+          );
+        })()}
       {activeSourceObj &&
         activeSourceObj.sets?.map((set, setIdx) =>
           set.tracks?.map((track, trackIdx) => {
