@@ -139,6 +139,7 @@ export default function PlaylistDetail({ id }: { id: string }) {
     setSaving(false);
     if (ok) {
       setEditing(false);
+      document.title = `${name} — playlist | The Lot`;
       refresh();
     } else toast.error('Could not save');
   };
