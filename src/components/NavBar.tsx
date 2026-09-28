@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import Flex from './Flex';
 import Menu from './Menu';
 import Player from './Player';
+import ImageNavStrip from './ImageNavStrip';
 import * as Popover from '@/components/Popover';
 import RelistenAPI from '@/lib/RelistenAPI';
 import MainNavHeader from './MainNavHeader';
@@ -56,47 +56,13 @@ export default async function NavBar() {
           </Popover.Portal>
         </Popover.Root>
 
-        <div className="nav hidden h-full min-w-0 cursor-pointer items-center gap-4 justify-self-end text-center font-medium whitespace-nowrap xl:flex">
-          <div className="h-full">
-            <Link className="nav-btn" href="/today" prefetch={false}>
-              TODAY
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn whitespace-nowrap" href="/recently-played" prefetch={false}>
-              TAPES
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn whitespace-nowrap" href="/tape-box" prefetch={false}>
-              TAPE BOX
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn" href="/playlists" prefetch={false}>
-              PLAYLISTS
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn" href="/favorites" prefetch={false}>
-              FAVORITES
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn" href="/app" prefetch={false}>
-              APP
-            </Link>
-          </div>
-          <div>
-            <Link className="nav-btn" href="/about" prefetch={false}>
-              ABOUT
-            </Link>
-          </div>
+        <div className="nav hidden h-full min-w-0 cursor-pointer items-center justify-self-end text-center font-medium whitespace-nowrap xl:flex">
           <div className="flex h-full items-center">
             <AuthButton />
           </div>
         </div>
       </div>
+      <ImageNavStrip />
     </>
   );
 }
