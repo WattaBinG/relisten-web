@@ -562,6 +562,182 @@ function PickUsernameBanner() {
   );
 }
 
+
+interface IdentityRow {
+  id: string;
+  provider: string;
+  identity_data?: { email?: string } | null;
+}
+
+/**
+ * Login methods: connect/disconnect Google + Apple, and add an email
+ * password to an OAuth-created account. Any connected method opens the
+ * same account. The last remaining method can't be removed.
+ */
+function LoginMethodsSection() {
+  const { session } = useCloudAuth();
+  const [identities, setIdentities] = useState<IdentityRow[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const refresh = async () => {
+    try {
+      const { data, error } = await getSupabase().auth.getUserIdentities();
+      if (!error && data) setIdentities(data.identities as IdentityRow[]);
+    } catch {
+      /* leave as-is on failure */
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const user = session?.user ?? null;
+  const providers = (user?.app_metadata?.providers as string[] | undefined) ?? [];
+  const hasPassword = providers.includes('email');
+  const google = identities?.find((i) => i.provider === 'google');
+  const apple = identities?.find((i) => i.provider === 'apple');
+  const isLastMethod = (identities?.length ?? 0) <= 1;
+
+  const linkProvider = async (provider: 'google' | 'apple') => {
+    setError(null);
+    setNotice(null);
+    setBusy(`link:${provider}`);
+    try {
+      // On success the browser leaves for the provider; /auth/callback
+      // exchanges the code and lands back on this page.
+      const { error } = await getSupabase().auth.linkIdentity({
+        provider,
+        options: { redirectTo: 'https://relisten-web.vercel.app/auth/callback' },
+      });
+      if (error) {
+        setError(friendlyError(error.message));
+        setBusy(null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start connecting.');
+      setBusy(null);
+    }
+  };
+
+  const unlinkProvider = async (identity: IdentityRow) => {
+    if (isLastMethod) return;
+    setError(null);
+    setNotice(null);
+    setBusy(`unlink:${identity.id}`);
+    try {
+      const { error } = await getSupabase().auth.unlinkIdentity(identity as never);
+      if (error) {
+        setError(friendlyError(error.message));
+      } else {
+        setNotice('Disconnected.');
+        await refresh();
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sendPasswordSetup = async () => {
+    const email = user?.email;
+    if (!email) return;
+    setError(null);
+    setNotice(null);
+    setBusy('password');
+    try {
+      const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://relisten-web.vercel.app/reset-password',
+      });
+      if (error) setError(friendlyError(error.message));
+      else setNotice(`We sent a setup link to ${email}.`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const row = (
+    label: string,
+    status: string,
+    action: React.ReactNode
+  ) => (
+    <div className="flex items-center justify-between gap-4 border-b border-gray-100 py-3 last:border-0">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="truncate text-xs text-gray-500">{status}</div>
+      </div>
+      <div className="shrink-0">{action}</div>
+    </div>
+  );
+
+  const connectBtn = (provider: 'google' | 'apple') => (
+    <button
+      type="button"
+      disabled={busy !== null}
+      onClick={() => void linkProvider(provider)}
+      className="cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+    >
+      {busy === `link:${provider}` ? 'Connecting…' : 'Connect'}
+    </button>
+  );
+
+  const disconnectBtn = (identity: IdentityRow) => (
+    <button
+      type="button"
+      disabled={busy !== null || isLastMethod}
+      title={isLastMethod ? "Can't remove your last sign-in method" : 'Disconnect'}
+      onClick={() => void unlinkProvider(identity)}
+      className="cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {busy === `unlink:${identity.id}` ? 'Working…' : 'Disconnect'}
+    </button>
+  );
+
+  return (
+    <section className={sectionClass}>
+      <h2 className={sectionTitleClass}>Login methods</h2>
+      <p className="mb-2 text-sm text-gray-600">
+        Connect more ways to sign in — every method opens this same account.
+      </p>
+      {identities === null ? (
+        <p className="py-2 text-sm text-gray-500">Loading…</p>
+      ) : (
+        <div>
+          {row(
+            'Google',
+            google ? `Connected as ${google.identity_data?.email ?? 'your Google account'}` : 'Not connected',
+            google ? disconnectBtn(google) : connectBtn('google')
+          )}
+          {row(
+            'Apple',
+            apple ? `Connected as ${apple.identity_data?.email ?? 'your Apple account'}` : 'Not connected',
+            apple ? disconnectBtn(apple) : connectBtn('apple')
+          )}
+          {row(
+            'Email + password',
+            hasPassword ? `Password set for ${user?.email ?? 'your email'}` : 'No password set',
+            hasPassword ? (
+              <span className="text-xs text-gray-400">Change it below ↓</span>
+            ) : (
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void sendPasswordSetup()}
+                className="cursor-pointer rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+              >
+                {busy === 'password' ? 'Sending…' : 'Email me a setup link'}
+              </button>
+            )
+          )}
+        </div>
+      )}
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {notice && <p className="mt-2 text-sm text-green-700">{notice}</p>}
+    </section>
+  );
+}
+
 function SettingsMenu() {
   const { signOut } = useCloudAuth();
 
@@ -570,6 +746,7 @@ function SettingsMenu() {
       <AvatarSection />
       <UsernameSection />
       <EmailSection />
+      <LoginMethodsSection />
       <BirthdaySection />
 
       <section className={sectionClass}>
