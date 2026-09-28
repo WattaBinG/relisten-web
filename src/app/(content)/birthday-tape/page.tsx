@@ -581,6 +581,26 @@ export default function BirthdayTapePage() {
             >
               {saving ? 'Building…' : `Save ${selected.size} as playlist`}
             </button>
+            <button
+              type="button"
+              disabled={saving || entries.length === 0}
+              onClick={() =>
+                setSelected(
+                  new Set(entries.map((e) => e.show.uuid).filter(Boolean) as string[]),
+                )
+              }
+              className="cursor-pointer rounded border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              disabled={saving || selected.size === 0}
+              onClick={() => setSelected(new Set())}
+              className="cursor-pointer rounded border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Clear
+            </button>
             {saveProgress && <span className="text-xs text-gray-500">{saveProgress}</span>}
           </div>
           {saveError && <p className="mb-4 text-center text-sm text-red-600">{saveError}</p>}
