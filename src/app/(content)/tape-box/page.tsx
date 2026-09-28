@@ -45,7 +45,7 @@ export default function TapeBoxPage() {
       {loading ? (
         <p className="text-sm text-gray-500">Digging through the crates…</p>
       ) : (
-        <TapeShelf tapes={tapes} tapeWidth={240} />
+        <TapeShelf tapes={tapes} />
       )}
     </div>
   );
