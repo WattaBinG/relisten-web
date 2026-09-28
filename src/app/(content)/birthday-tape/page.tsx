@@ -8,7 +8,7 @@ import {
   getMonthDay,
   useFavoriteArtistUuids,
 } from '@/lib/cloud/birthday';
-import { addTrackToPlaylist, createPlaylist, type NewTrackInput } from '@/lib/cloud/playlists';
+import { addTracksToPlaylist, createPlaylist, type NewTrackInput } from '@/lib/cloud/playlists';
 import {
   getReviews,
   getSetlistByDate,
@@ -439,18 +439,20 @@ export default function BirthdayTapePage() {
     try {
       const playlist = await createPlaylist(userId, tapeName);
       if (!playlist) throw new Error('Could not create the playlist.');
-      let added = 0;
+      let addedShows = 0;
       for (const entry of chosen) {
         setSaveProgress(`Adding ${entry.artistName} ${entry.show.display_date}…`);
         try {
-          const track = await firstTrackOfBestSource(entry);
-          if (track && (await addTrackToPlaylist(playlist.id, track))) added++;
+          const tracks = await allTracksOfBestSource(entry);
+          if (tracks.length > 0 && (await addTracksToPlaylist(playlist.id, tracks)) > 0) {
+            addedShows++;
+          }
         } catch {
           // Skip shows whose sources fail to load — keep going.
         }
       }
       setSaveProgress(null);
-      if (added === 0) throw new Error('No tracks could be added — try again later.');
+      if (addedShows === 0) throw new Error('No tracks could be added — try again later.');
       setSavedPlaylistId(playlist.id);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -579,7 +581,7 @@ export default function BirthdayTapePage() {
               onClick={() => void saveAsPlaylist()}
               className="cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {saving ? 'Building…' : `Save ${selected.size} as playlist`}
+              {saving ? 'Building…' : `Save ${selected.size} shows as playlist`}
             </button>
             <button
               type="button"
@@ -707,12 +709,12 @@ export default function BirthdayTapePage() {
   );
 }
 
-/** First track of the highest-rated source for a show (for "Save as playlist"). */
-async function firstTrackOfBestSource(entry: TapeEntry): Promise<NewTrackInput | null> {
+/** Every track of the highest-rated source for a show (for "Save as playlist"). */
+async function allTracksOfBestSource(entry: TapeEntry): Promise<NewTrackInput[]> {
   const showUuid = entry.show.uuid;
-  if (!showUuid) return null;
+  if (!showUuid) return [];
   const res = await fetch(`${API_DOMAIN}/api/v3/shows/${showUuid}`);
-  if (!res.ok) return null;
+  if (!res.ok) return [];
   const tape = (await res.json()) as {
     sources?: {
       uuid?: string;
@@ -723,22 +725,25 @@ async function firstTrackOfBestSource(entry: TapeEntry): Promise<NewTrackInput |
     display_date?: string;
   };
   const sources = tape.sources ?? [];
-  if (sources.length === 0) return null;
+  if (sources.length === 0) return [];
   const best = [...sources].sort(
     (a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0)
   )[0];
-  const firstTrack = best.sets?.flatMap((s) => s.tracks ?? [])[0];
-  if (!best.uuid || !firstTrack?.uuid) return null;
-  return {
-    artist_name: entry.artistName,
-    artist_slug: entry.artistSlug,
-    show_uuid: showUuid,
-    show_date: entry.show.display_date ?? entry.show.date ?? '',
-    venue_name: tape.venue?.name ?? entry.show.venue?.name ?? null,
-    source_uuid: best.uuid,
-    track_uuid: firstTrack.uuid,
-    song_title: firstTrack.title ?? 'Unknown title',
-    track_position: firstTrack.track_position ?? null,
-    duration_seconds: firstTrack.duration ?? null,
-  };
+  if (!best.uuid) return [];
+  const showDate = entry.show.display_date ?? entry.show.date ?? '';
+  const venueName = tape.venue?.name ?? entry.show.venue?.name ?? null;
+  return (best.sets?.flatMap((s) => s.tracks ?? []) ?? [])
+    .filter((t) => t.uuid)
+    .map((t) => ({
+      artist_name: entry.artistName,
+      artist_slug: entry.artistSlug,
+      show_uuid: showUuid,
+      show_date: showDate,
+      venue_name: venueName,
+      source_uuid: best.uuid as string,
+      track_uuid: t.uuid as string,
+      song_title: t.title ?? 'Unknown title',
+      track_position: t.track_position ?? null,
+      duration_seconds: t.duration ?? null,
+    }));
 }
