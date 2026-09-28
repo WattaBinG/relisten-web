@@ -488,6 +488,80 @@ function BirthdaySection() {
   );
 }
 
+
+/** Auto-generated placeholder usernames look like user_3e64439e. */
+function isAutoUsername(username: string | null | undefined): boolean {
+  return !!username && /^user_[0-9a-f]{8}$/.test(username);
+}
+
+/**
+ * Shown at the top of account settings when the user still has an
+ * auto-generated username (e.g. after Apple/Google sign-in, which has no
+ * username step). Prompts them to claim a real one.
+ */
+function PickUsernameBanner() {
+  const { profile, updateUsername } = useCloudAuth();
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const auto = isAutoUsername(profile?.username);
+  if (!auto) return null;
+
+  const save = async () => {
+    setError(null);
+    const clean = normalizeUsername(draft);
+    if (clean.length < 3) {
+      setError('Username needs at least 3 characters (letters, numbers, _).');
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error: updateError } = await updateUsername(draft);
+      if (updateError) setError(friendlyError(updateError));
+      else setSaved(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (saved) return null;
+
+  return (
+    <div className="mb-4 rounded-xl border-2 border-orange-400 bg-orange-50 p-5">
+      <h2 className="text-base font-bold">Pick your username</h2>
+      <p className="mt-1 text-sm text-gray-600">
+        You&apos;re currently <span className="font-mono">@{profile?.username}</span> — claim
+        a real one before someone else grabs it.
+      </p>
+      <div className="mt-3 flex max-w-sm gap-2">
+        <input
+          className={inputClass}
+          value={draft}
+          maxLength={20}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="yourname"
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError(null);
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+          className="shrink-0 cursor-pointer rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {busy ? 'Saving…' : 'Claim'}
+        </button>
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      <p className="mt-2 text-xs text-gray-500">3–20 characters: lowercase letters, numbers, _ only.</p>
+    </div>
+  );
+}
+
 function SettingsMenu() {
   const { signOut } = useCloudAuth();
 
@@ -566,6 +640,7 @@ export default function AccountPage() {
     return (
       <div className="content">
         <h1 className="mb-6">Account settings</h1>
+        <PickUsernameBanner />
         <SettingsMenu />
       </div>
     );

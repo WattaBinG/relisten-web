@@ -7,7 +7,8 @@ import { getSupabase, isCloudEnabled } from '@/lib/cloud/supabase';
 /**
  * OAuth landing page: Apple/Google redirect here with a `code` query param.
  * Exchanges it for a session (the auth context picks it up automatically),
- * then sends the user home.
+ * then sends the user to their account page — first-time OAuth sign-ins land
+ * with an auto-generated username and get prompted to pick a real one there.
  */
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function AuthCallbackPage() {
           return;
         }
       }
-      router.replace('/');
+      router.replace('/account');
     })();
   }, [router]);
 
