@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { normalizeUsername, useCloudAuth } from '@/lib/cloud/auth';
 import { getMonthDay, updateBirthdaySettings } from '@/lib/cloud/birthday';
 import { isCloudEnabled, getSupabase } from '@/lib/cloud/supabase';
@@ -660,7 +660,7 @@ function LoginMethodsSection() {
   const row = (
     label: string,
     status: string,
-    action: React.ReactNode
+    action: ReactNode
   ) => (
     <div className="flex items-center justify-between gap-4 border-b border-gray-100 py-3 last:border-0">
       <div className="min-w-0">
