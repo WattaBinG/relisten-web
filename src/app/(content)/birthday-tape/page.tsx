@@ -312,7 +312,7 @@ export default function BirthdayTapePage() {
                           style={{ fontFamily: "'Segoe Print','Bradley Hand','Comic Sans MS',cursive" }}
                         >
                           {venueBits}
-                          {entry.show.source_count ? ` · ${entry.show.source_count} tapes` : ''}
+                          {entry.show.source_count ? ` · ${entry.show.source_count} tape${entry.show.source_count === 1 ? '' : 's'}` : ''}
                         </div>
                       </div>
                       <div className="mt-2 flex items-center justify-between px-1 text-[11px] font-bold tracking-[0.2em] text-neutral-400">
