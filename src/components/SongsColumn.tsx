@@ -13,7 +13,8 @@ import RowHeader from './RowHeader';
 import Tag from './Tag';
 import { sortSources } from '@/lib/sortSources';
 import AddToPlaylistButton from './playlists/AddToPlaylistButton';
-import { useArtistName } from '@/lib/cloud/playlists';
+import AddShowToPlaylistButton from './playlists/AddShowToPlaylistButton';
+import { useArtistName, type NewTrackInput } from '@/lib/cloud/playlists';
 
 const getSetTime = (set: Set): string =>
   durationToHHMMSS(
@@ -85,6 +86,30 @@ const SongsColumn = (props: Props) => {
   });
   const artistName = useArtistName(props.artistSlug);
 
+  // Every track of the active source, for "Add show to playlist".
+  const showUuid = props.show?.uuid;
+  const sourceUuid = activeSourceObj?.uuid;
+  const artistSlug = props.artistSlug;
+  const showTracks: NewTrackInput[] =
+    showUuid && sourceUuid && artistSlug
+      ? (activeSourceObj?.sets ?? []).flatMap((set) =>
+          (set.tracks ?? [])
+            .filter((t) => t.uuid)
+            .map((t) => ({
+              artist_name: artistName || artistSlug,
+              artist_slug: artistSlug,
+              show_uuid: showUuid,
+              show_date: props.show?.display_date ?? displayDate ?? '',
+              venue_name: props.show?.venue?.name ?? null,
+              source_uuid: sourceUuid,
+              track_uuid: t.uuid ?? '',
+              song_title: t.title ?? 'Untitled',
+              track_position: t.track_position ?? null,
+              duration_seconds: t.duration ?? null,
+            }))
+        )
+      : [];
+
   return (
     <Column
       heading={
@@ -95,6 +120,14 @@ const SongsColumn = (props: Props) => {
           : 'Songs'
       }
     >
+      {showTracks.length > 0 && (
+        <div className="border-b border-gray-100 px-2 py-2">
+          <AddShowToPlaylistButton
+            tracks={showTracks}
+            showLabel={`${artistName || props.artistSlug} ${displayDate ?? ''}`.trim()}
+          />
+        </div>
+      )}
       {activeSourceObj &&
         activeSourceObj.sets?.map((set, setIdx) =>
           set.tracks?.map((track, trackIdx) => {
