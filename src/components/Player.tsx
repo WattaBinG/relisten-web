@@ -5,7 +5,6 @@ import React, { useRef, useState } from 'react';
 
 import type { RootState } from '@/redux';
 import {
-  ChevronDown,
   FastForwardIcon,
   ListMusicIcon,
   PauseIcon,
@@ -21,11 +20,21 @@ interface Props {
   artistSlugsToName: Record<string, string | undefined>;
 }
 
+const SKIP_BACK_SECONDS = 15;
+const SKIP_FWD_SECONDS = 30;
+
+/**
+ * Bottom player bar: a full-width draggable scrubber on top, transport
+ * controls + track info below. Drag the knob (or tap anywhere on the bar)
+ * to seek; -15s/+30s buttons jump around inside long jams.
+ */
 const Player = ({ artistSlugsToName }: Props) => {
-  const playerRef = useRef<HTMLDivElement>(null);
   const playback = useSelector((state: RootState) => state.playback);
   const [showRemainingDuration, setShowRemainingDuration] = useState(false);
-  const hoverTextRef = useRef<HTMLSpanElement>(null);
+  const [scrubFraction, setScrubFraction] = useState<number | null>(null);
+  const [hoverLabel, setHoverLabel] = useState<string | null>(null);
+  const [hoverX, setHoverX] = useState(0);
+  const scrubRef = useRef<HTMLDivElement>(null);
   const [volume, setVolume] = useState(
     (typeof localStorage !== 'undefined' && localStorage.volume) || 1
   );
@@ -36,31 +45,46 @@ const Player = ({ artistSlugsToName }: Props) => {
   const activeTrack = playback.tracks.find(
     (_track, idx: number) => idx === playback.activeTrack.index
   );
-  const nextTrack = playback.tracks.find(
-    (_track, idx: number) => idx === (playback.activeTrack.index ?? -1) + 1
-  );
-  const notchPosition =
-    typeof window === 'undefined' || !playerRef
-      ? 0
-      : ((playback.activeTrack.currentTime ?? 0) / (playback.activeTrack.duration ?? 1)) *
-        (Number(playerRef.current?.clientWidth) - 3);
 
-  const onProgressClick = (e: React.MouseEvent) => {
-    const rect = playerRef.current?.getBoundingClientRect();
+  const duration = playback.activeTrack.duration ?? 0;
+  const currentTime = playback.activeTrack.currentTime ?? 0;
+  const fraction = scrubFraction ?? (duration > 0 ? currentTime / duration : 0);
 
-    if (!rect) return;
+  const fractionFromClientX = (clientX: number) => {
+    const rect = scrubRef.current?.getBoundingClientRect();
 
-    const percentage = (e.pageX - rect?.left) / rect?.width;
+    if (!rect || rect.width === 0) return 0;
 
-    player.seek(percentage * (playback?.activeTrack?.duration ?? 0));
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
   };
 
-  const onProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const time = (x / rect.width) * (playback.activeTrack.duration ?? 0);
-    e.currentTarget.style.setProperty('--hover-x', `${x}px`);
-    if (hoverTextRef.current) hoverTextRef.current.textContent = durationToHHMMSS(time);
+  const onScrubPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const f = fractionFromClientX(e.clientX);
+    setScrubFraction(f);
+    const rect = scrubRef.current?.getBoundingClientRect();
+    setHoverX(e.clientX - (rect?.left ?? 0));
+    setHoverLabel(durationToHHMMSS(f * duration));
+  };
+
+  const onScrubPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = scrubRef.current?.getBoundingClientRect();
+    const x = e.clientX - (rect?.left ?? 0);
+    const f = fractionFromClientX(e.clientX);
+    setHoverX(x);
+    setHoverLabel(durationToHHMMSS(f * duration));
+    if (scrubFraction !== null) setScrubFraction(f);
+  };
+
+  const onScrubPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (scrubFraction !== null) {
+      player.seek(fractionFromClientX(e.clientX) * duration);
+    }
+    setScrubFraction(null);
+  };
+
+  const skipBy = (delta: number) => {
+    player.seek(Math.min(Math.max(0, currentTime + delta), duration));
   };
 
   const toggleRemainingDuration = () => {
@@ -79,126 +103,149 @@ const Player = ({ artistSlugsToName }: Props) => {
     localStorage.volume = Math.max(0, Math.min(1, nextVolume));
   };
 
+  if (!activeTrack) return <div className="h-full w-full" />;
+
+  const showHref = `/${artistSlug}/${year}/${month}/${day}?source=${source}`;
+
   return (
-    <Flex className="content relative h-[50px] flex-1">
-      {activeTrack && (
-        <Flex
-          className="playpause text-foreground-muted cursor-pointer items-center justify-center active:text-gray-800 lg:w-[40px]"
+    <div className="flex h-full w-full flex-col select-none">
+      {/* Scrubber: drag the knob or tap anywhere to seek */}
+      <div
+        ref={scrubRef}
+        role="slider"
+        aria-label="Seek"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(scrubFraction !== null ? scrubFraction * duration : currentTime)}
+        className="group relative flex h-6 w-full shrink-0 cursor-pointer touch-none items-center px-2"
+        onPointerDown={onScrubPointerDown}
+        onPointerMove={onScrubPointerMove}
+        onPointerUp={onScrubPointerUp}
+        onPointerCancel={() => setScrubFraction(null)}
+        onPointerLeave={() => {
+          if (scrubFraction === null) setHoverLabel(null);
+        }}
+      >
+        <div className="relative h-[6px] w-full rounded-full bg-[#d4d4d4]">
+          <div
+            className="absolute top-0 left-0 h-full rounded-full bg-[#5b2f8f]"
+            style={{ width: `${(fraction * 100).toFixed(2)}%` }}
+          />
+          <div
+            className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-md ring-1 ring-black/20 transition-opacity group-hover:opacity-100 group-active:scale-110 group-active:opacity-100"
+            style={{ left: `${(fraction * 100).toFixed(2)}%` }}
+          />
+        </div>
+        {hoverLabel !== null && (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-gray-100 tabular-nums shadow-lg"
+            style={{ left: Math.min(Math.max(hoverX, 28), (scrubRef.current?.clientWidth ?? 56) - 28) }}
+          >
+            {hoverLabel}
+          </div>
+        )}
+      </div>
+
+      {/* Transport + track info */}
+      <Flex className="min-h-0 flex-1 items-center gap-1 px-1 pb-1 sm:gap-1.5">
+        <button
+          type="button"
+          aria-label={playback.activeTrack.isPaused ? 'Play' : 'Pause'}
           onClick={() => player.togglePlayPause()}
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-800 hover:bg-gray-100 active:text-gray-600"
         >
           {playback.activeTrack.isPaused ? (
-            <PlayIcon
-              size={20}
-              className="fas fa fa-play fill-foreground-muted active:fill-gray-800"
-            />
+            <PlayIcon size={22} className="fill-gray-800" />
           ) : (
-            <PauseIcon
-              size={20}
-              className="fas fa fa-pause fill-foreground-muted active:fill-gray-800"
-            />
+            <PauseIcon size={22} className="fill-gray-800" />
           )}
-        </Flex>
-      )}
-      {typeof window === 'undefined' || !activeTrack ? null : (
-        <div className="relative h-full flex-1" ref={playerRef}>
-          <Flex className="info h-full justify-center transition-all duration-[1s] ease-in-out">
-            <div className="timing text-foreground-muted absolute top-1/2 left-[8px] translate-x-0 translate-y-[-50%] text-left text-[0.8em]">
-              <div>
-                <RewindIcon
-                  className="fill-foreground-muted cursor-pointer"
-                  onClick={() => player.previous()}
-                  size={16}
-                />
-              </div>
-              <div>{durationToHHMMSS(playback.activeTrack.currentTime)}</div>
-            </div>
-            <Flex column className="justify-center pb-1">
-              <div className="song-title relative top-1 text-center text-[1em] text-gray-900">
-                {activeTrack.title}
-                {false && (
-                  <Flex className="text-foreground-muted absolute top-[2px] left-full ml-2 w-full items-center text-[0.8em]">
-                    <div>Next: {nextTrack?.title}&nbsp;</div>
-                    <ChevronDown size={12} className="cursor-pointer" />
-                  </Flex>
-                )}
-              </div>
+        </button>
+        <button
+          type="button"
+          aria-label="Back 15 seconds"
+          title="Back 15 seconds"
+          onClick={() => skipBy(-SKIP_BACK_SECONDS)}
+          className="flex h-7 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-gray-300 text-[0.7em] font-semibold text-gray-600 tabular-nums hover:bg-gray-100 active:bg-gray-200"
+        >
+          -15
+        </button>
+        <button
+          type="button"
+          aria-label="Forward 30 seconds"
+          title="Forward 30 seconds"
+          onClick={() => skipBy(SKIP_FWD_SECONDS)}
+          className="flex h-7 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-gray-300 text-[0.7em] font-semibold text-gray-600 tabular-nums hover:bg-gray-100 active:bg-gray-200"
+        >
+          +30
+        </button>
 
-              <Link
-                href="/"
-                as={`/${artistSlug}/${year}/${month}/${day}?source=${source}`}
-                className="band-title text-foreground-muted justify-center text-center text-[0.8em]"
-              >
-                {artistName} – {removeLeadingZero(month)}/{removeLeadingZero(day)}/{year.slice(2)}
-              </Link>
-            </Flex>
-            <div className="timing duration text-foreground-muted absolute top-1/2 right-[8px] translate-x-0 translate-y-[-50%] text-right text-[0.8em]">
-              <div>
-                <FastForwardIcon
-                  className="fill-foreground-muted ml-auto cursor-pointer"
-                  onClick={() => player.next()}
-                  size={16}
-                />
-              </div>
-              <div onClick={toggleRemainingDuration} className="cursor-pointer">
-                {durationToHHMMSS(
-                  showRemainingDuration
-                    ? (playback.activeTrack.currentTime ?? 0) - (playback.activeTrack.duration ?? 0)
-                    : (playback.activeTrack.duration ?? 0)
-                )}
-              </div>
-            </div>
-          </Flex>
-          <div
-            className="group absolute bottom-0 left-0 z-1 h-1 w-full cursor-pointer bg-[#bcbcbc] before:absolute before:-top-2 before:left-0 before:h-3 before:w-full before:content-['']"
-            onClick={onProgressClick}
-            onMouseMove={onProgressMouseMove}
-            style={{ opacity: (playback.activeTrack.currentTime ?? 0) < 0.1 ? 0.8 : 1 }}
-          >
-            <div
-              className="absolute bottom-0 left-0 h-1 bg-[#707070]"
-              style={{ width: notchPosition ? notchPosition + 2 : 'auto' }}
-            />
-            <div
-              className="absolute bottom-0 left-0 z-1 h-2 w-[3px] bg-black"
-              style={{ transform: `translate(${notchPosition}px, 0)` }}
-            />
-            <div
-              className="pointer-events-none absolute bottom-full z-2 mb-2 hidden -translate-x-1/2 rounded-md bg-gray-900 px-2.5 py-1 text-xs text-gray-100 tabular-nums shadow-lg ring-1 ring-white/10 group-hover:block"
-              style={{ left: 'var(--hover-x)' }}
-            >
-              <span ref={hoverTextRef} />
-              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-            </div>
+        <div className="mx-1 min-w-0 flex-1 text-left leading-tight">
+          <div className="truncate text-[0.95em] font-medium text-gray-900">
+            {activeTrack.title}
           </div>
+          <Link
+            href="/"
+            as={showHref}
+            className="text-foreground-muted block truncate text-[0.78em] hover:underline"
+          >
+            {artistName} – {removeLeadingZero(month)}/{removeLeadingZero(day)}/
+            {year.slice(2)}
+          </Link>
         </div>
-      )}
-      {activeTrack && (
-        <div className="volume-control">
+
+        <button
+          type="button"
+          aria-label="Previous track"
+          title="Previous track"
+          onClick={() => player.previous()}
+          className="hidden shrink-0 cursor-pointer rounded-full p-1.5 text-gray-500 hover:bg-gray-100 sm:block"
+        >
+          <RewindIcon size={16} className="fill-gray-500" />
+        </button>
+        <button
+          type="button"
+          aria-label="Next track"
+          title="Next track"
+          onClick={() => player.next()}
+          className="hidden shrink-0 cursor-pointer rounded-full p-1.5 text-gray-500 hover:bg-gray-100 sm:block"
+        >
+          <FastForwardIcon size={16} className="fill-gray-500" />
+        </button>
+
+        <div
+          onClick={toggleRemainingDuration}
+          title="Toggle remaining time"
+          className="text-foreground-muted shrink-0 cursor-pointer text-[0.8em] tabular-nums"
+        >
+          {durationToHHMMSS(
+            showRemainingDuration ? currentTime - duration : currentTime
+          )}
+          <span className="text-gray-400"> / {durationToHHMMSS(duration)}</span>
+        </div>
+
+        <div className="volume-control hidden shrink-0 self-stretch py-1 md:block">
           <div
-            className="relative h-full w-[6px] cursor-pointer bg-[#0000001a]"
+            className="relative h-full w-[6px] cursor-pointer rounded-full bg-[#0000001a]"
             onClick={updateVolume}
+            title="Volume"
           >
             <div
-              className="pointer-events-none absolute right-0 bottom-0 left-0 bg-[#707070]"
-              style={{
-                height: `${volume * 100}%`,
-              }}
+              className="pointer-events-none absolute right-0 bottom-0 left-0 rounded-full bg-[#707070]"
+              style={{ height: `${volume * 100}%` }}
             />
           </div>
         </div>
-      )}
-      {activeTrack && (
+
         <Link
           href="/"
-          as={`/${artistSlug}/${year}/${month}/${day}?source=${source}`}
-          className="text-foreground-muted flex w-[40px] cursor-pointer items-center justify-center self-center active:text-gray-800 max-lg:hidden"
+          as={showHref}
+          aria-label="Now playing queue"
+          className="text-foreground-muted hidden w-[36px] shrink-0 cursor-pointer items-center justify-center self-center active:text-gray-800 lg:flex"
         >
-          <div>
-            <ListMusicIcon size={22} />
-          </div>
+          <ListMusicIcon size={20} />
         </Link>
-      )}
-    </Flex>
+      </Flex>
+    </div>
   );
 };
 
