@@ -4,7 +4,7 @@ import BandSearch, { type BandSearchItem } from '@/components/BandSearch';
 import HomeHero from '@/components/home/HomeHero';
 import BrandHero from '@/components/home/BrandHero';
 import TrendingRow, { type TrendingBand } from '@/components/home/TrendingRow';
-import BrowseAllBands from '@/components/home/BrowseAllBands';
+import BandBrowser from '@/components/home/BandBrowser';
 import FriendsActivity from '@/components/community/FriendsActivity';
 import BirthdaysToday from '@/components/home/BirthdaysToday';
 import BirthdayTapePromo from '@/components/home/BirthdayTapePromo';
@@ -55,7 +55,7 @@ export default async function HomePage() {
         <FriendsActivity />
         <BirthdaysToday />
         <BirthdayTapePromo />
-        <BrowseAllBands artists={artists} />
+        <BandBrowser artists={artists} />
       </main>
     </div>
   );
