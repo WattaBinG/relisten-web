@@ -29,24 +29,26 @@ export default async function NavBar() {
 
   return (
     <>
-      {/* Sticky so the account menu, logo, band search, and player stay reachable while scrolling */}
-      <div className="navigation text-foreground relative sticky top-0 z-40 grid h-[68px] max-h-[68px] min-h-[68px] grid-cols-[auto_auto_1fr_auto] border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] lg:px-4">
-        <div className="flex h-full items-center">
-          <UserMenu />
+      {/* Sticky header: logo left, search, player fills the middle, account menu top-right */}
+      <div className="navigation text-foreground relative sticky top-0 z-40 flex h-[68px] items-center gap-2 border-b-[1px] border-b-[#aeaeae] bg-white px-2 lg:gap-3 lg:px-4">
+        <div className="shrink-0">
+          <MainNavHeader
+            artistSlugsToName={artistSlugsToName}
+            indexOverride={isInIframe ? '/wsp' : undefined}
+          />
         </div>
-        <MainNavHeader
-          artistSlugsToName={artistSlugsToName}
-          indexOverride={isInIframe ? '/wsp' : undefined}
-        />
-        <div className="hidden h-full items-center pl-3 lg:flex">
+        <div className="hidden w-56 shrink-0 lg:block xl:w-72">
           <BandSearch artists={searchArtists} />
         </div>
-        <div className="player min-w-0 overflow-hidden text-center lg:justify-self-center xl:max-w-[38vw]">
+        <div className="player min-w-0 flex-1 overflow-hidden text-center xl:mx-auto xl:max-w-[38vw]">
           <Player artistSlugsToName={artistSlugsToName} />
         </div>
 
-        <div className="flex h-full items-center">
+        <div className="flex shrink-0 items-center">
           <MobileSearch artists={searchArtists} />
+          <div className="px-1">
+            <UserMenu />
+          </div>
 
           <Popover.Root>
             <Popover.Trigger className="ml-2 h-full w-min cursor-pointer content-end items-center justify-self-end text-center font-medium xl:hidden">
