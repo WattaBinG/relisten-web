@@ -11,8 +11,11 @@ type Video = { id: string; title: string; note?: string };
 const CURATED: Record<string, Video[]> = {
   'phish:1999-12-31': [
     { id: 'eQzsso_ixbA', title: 'Full show — Big Cypress', note: 'Full-night fan upload' },
+    { id: 'ErV68z-yFSo', title: "NYE countdown into 2000", note: 'Midnight-Sunrise project edit' },
     { id: 'mJ8DLEi9dYE', title: 'Sand → Quadrophonic Toppling', note: 'Fan edit' },
     { id: 'xAC9DzV-tGs', title: 'Heavy Things', note: "ABC's millennium broadcast" },
+    { id: 's4vNSCXb3os', title: 'Bug', note: 'Pro-shot fan upload' },
+    { id: 'woD5qWVDAUc', title: 'Rock and Roll', note: 'Fan edit' },
   ],
 };
 
