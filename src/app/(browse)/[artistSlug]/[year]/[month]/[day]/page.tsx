@@ -2,6 +2,7 @@ import RelistenAPI from '@/lib/RelistenAPI';
 import { createShowDate } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 import CommunitySection from '@/components/community/CommunitySection';
+import VideoBlock from '@/components/community/VideoBlock';
 
 type Props = {
   params: Promise<{ artistSlug: string; year: string; month: string; day: string }>;
@@ -19,6 +20,7 @@ export default async function ShowDayPage({ params }: Props) {
 
   return (
     <div className="min-w-0">
+      <VideoBlock artistSlug={artistSlug} date={date} artistName={artistName} />
       <CommunitySection
         showUuid={show.uuid}
         artistSlug={artistSlug}
