@@ -20,7 +20,6 @@ export default async function ShowDayPage({ params }: Props) {
 
   return (
     <div className="min-w-0">
-      <VideoBlock artistSlug={artistSlug} date={date} artistName={artistName} />
       <CommunitySection
         showUuid={show.uuid}
         artistSlug={artistSlug}
@@ -30,6 +29,7 @@ export default async function ShowDayPage({ params }: Props) {
         artistName={artistName}
         venueName={show.venue?.name ?? null}
       />
+      <VideoBlock artistSlug={artistSlug} date={date} artistName={artistName} />
     </div>
   );
 }
