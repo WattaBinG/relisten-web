@@ -3,6 +3,7 @@ import NextTopLoader from 'nextjs-toploader';
 import dns from 'node:dns';
 import React from 'react';
 import Providers from './Providers';
+import BottomNav from '@/components/BottomNav';
 
 // https://github.com/node-fetch/node-fetch/issues/1624#issuecomment-1407717012
 dns.setDefaultResultOrder('ipv4first');
@@ -26,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* <Link href="https://en.wikipedia.org/wiki/Bob_Weir" target="_blank">
           <div className="fixed top-0 z-10 h-2 w-full bg-black" />
         </Link> */}
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <BottomNav />
+        </Providers>
       </body>
     </html>
   );
