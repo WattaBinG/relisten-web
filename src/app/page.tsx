@@ -6,7 +6,7 @@ import LiveTrack from '@/components/LiveTrack';
 import BirthdayTapePromo from '@/components/home/BirthdayTapePromo';
 import ShowShelf from '@/components/home/ShowShelf';
 import ShowCard from '@/components/home/ShowCard';
-import type { Artist } from '@/types';
+import type { Artist, Day, LiveHistoryItem, Show } from '@/types';
 
 /** Refresh at most hourly so "shows on this day" stays current. */
 export const revalidate = 3600;
@@ -22,21 +22,22 @@ const showHref = (artistSlug: string, displayDate?: string | null) => {
  * Home: Continue listening -> Shows on this day -> Birthday Tape -> Trending shows.
  */
 export default async function HomePage() {
-  const [artists, currentMonthDay, history] = await Promise.all([
-    RelistenAPI.fetchArtists().catch(() => []),
-    getCurrentMonthDay(),
-    RelistenAPI.fetchLiveHistory().catch(() => []),
-  ]);
+  const [artists, currentMonthDay, history]: [Artist[], { month: string; day: string }, LiveHistoryItem[]] =
+    await Promise.all([
+      RelistenAPI.fetchArtists().catch(() => []),
+      getCurrentMonthDay(),
+      RelistenAPI.fetchLiveHistory().catch(() => []),
+    ]);
 
   const trendingArtists = [...artists]
     .sort((a, b) => weeklyPlays(b) - weeklyPlays(a))
     .slice(0, 5);
 
   const [todayShows, trendingShows] = await Promise.all([
-    RelistenAPI.fetchTodayShows(currentMonthDay.month, currentMonthDay.day).catch(() => []),
+    RelistenAPI.fetchTodayShows(currentMonthDay.month, currentMonthDay.day).catch((): Day[] => []),
     Promise.all(
       trendingArtists.map(async (artist) => {
-        const shows = await RelistenAPI.fetchTopShows(artist.slug).catch(() => []);
+        const shows: Show[] = await RelistenAPI.fetchTopShows(artist.slug).catch(() => []);
         return (shows ?? []).slice(0, 2).map((show) => ({
           show,
           artistSlug: artist.slug as string,
