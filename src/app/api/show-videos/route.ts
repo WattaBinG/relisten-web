@@ -56,17 +56,30 @@ async function ytSearch(apiKey: string, query: string): Promise<ShowVideo[]> {
  * show's, null if no dates are mentioned at all.
  */
 function mentionsDate(t: string, tM: string, tD: string, tY: string): boolean | null {
-  const re = /\b(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})\b/g;
+  const MONTHS: Record<string, string> = {
+    january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
+    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12',
+  };
   let found = false;
   let hit = false;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(t)) !== null) {
+  const check = (mo: string, da: string, yr: string) => {
     found = true;
-    const mo = m[1].padStart(2, '0');
-    const da = m[2].padStart(2, '0');
-    let yr = m[3];
     if (yr.length === 2) yr = (Number(yr) > 30 ? '19' : '20') + yr;
     if (mo === tM && da === tD && yr === tY) hit = true;
+  };
+  // Numeric: 5/8/77, 05-08-1977, 5.8.77 …
+  let m: RegExpExecArray | null;
+  const numeric = /\b(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})\b/g;
+  while ((m = numeric.exec(t)) !== null) {
+    check(m[1].padStart(2, '0'), m[2].padStart(2, '0'), m[3]);
+  }
+  // Month names: "April 27, 1977", "May 8 77" …
+  const named = new RegExp(
+    '\\b(' + Object.keys(MONTHS).join('|') + ')\\s+(\\d{1,2}),?\\s+(\\d{2,4})\\b',
+    'g'
+  );
+  while ((m = named.exec(t)) !== null) {
+    check(MONTHS[m[1].toLowerCase()], m[2].padStart(2, '0'), m[3]);
   }
   if (!found) return null;
   return hit;
