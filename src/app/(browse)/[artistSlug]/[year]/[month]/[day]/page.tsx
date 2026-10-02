@@ -3,10 +3,15 @@ import { createShowDate } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 import CommunitySection from '@/components/community/CommunitySection';
 import VideoBlock from '@/components/community/VideoBlock';
+import ShowStoryButton from '@/components/community/ShowStoryButton';
+import type { Source } from '@/types';
 
 type Props = {
   params: Promise<{ artistSlug: string; year: string; month: string; day: string }>;
 };
+
+const trackCount = (s: Source) =>
+  (s.sets ?? []).reduce((n, set) => n + (set.tracks?.length ?? 0), 0);
 
 export default async function ShowDayPage({ params }: Props) {
   const { artistSlug, year, month, day } = await params;
@@ -18,8 +23,23 @@ export default async function ShowDayPage({ params }: Props) {
   const artists = await RelistenAPI.fetchArtists().catch(() => null);
   const artistName = artists?.find((a) => a.slug === artistSlug)?.name ?? artistSlug;
 
+  // Setlist for the AI story: song titles from the fullest source.
+  const bestSource = [...(show.sources ?? [])].sort((a, b) => trackCount(b) - trackCount(a))[0];
+  const setlist = (bestSource?.sets ?? []).flatMap((s) =>
+    (s.tracks ?? []).map((t) => t.title).filter((t): t is string => !!t)
+  );
+
   return (
     <div className="min-w-0">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-8">
+        <ShowStoryButton
+          artistName={artistName}
+          date={date}
+          venueName={show.venue?.name ?? null}
+          setlist={setlist}
+          showUuid={show.uuid}
+        />
+      </div>
       <CommunitySection
         showUuid={show.uuid}
         artistSlug={artistSlug}
