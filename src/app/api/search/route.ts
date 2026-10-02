@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import RelistenAPI from '@/lib/RelistenAPI';
+import type { Artist, Song, Venue, Show } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,14 +15,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ artists: [], groups: [] });
   }
 
-  const artists = await RelistenAPI.fetchArtists().catch(() => []);
+  const artists: Artist[] = await RelistenAPI.fetchArtists().catch(() => []);
   const matched = artists
     .filter((a) => a.name?.toLowerCase().includes(q))
     .slice(0, 8);
 
   const groups = await Promise.all(
     matched.slice(0, 4).map(async (artist) => {
-      const [songs, venues, shows] = await Promise.all([
+      const [songs, venues, shows]: [Song[], Venue[], Show[]] = await Promise.all([
         RelistenAPI.fetchSongs(artist.slug).catch(() => []),
         RelistenAPI.fetchVenues(artist.slug).catch(() => []),
         RelistenAPI.fetchTopShows(artist.slug).catch(() => []),
