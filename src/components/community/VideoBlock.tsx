@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type Video = { id: string; title: string; note?: string };
 
-// Prototype: hand-curated fan videos for a handful of famous shows.
-// The production version would query the YouTube Data API for
-// `${artistName} ${date}` and embed results — never downloading or
-// re-hosting anything, just embedding YouTube's player.
+// Hand-picked videos for famous shows always lead; YouTube search results
+// (via /api/show-videos) fill in behind them, de-duplicated.
 const CURATED: Record<string, Video[]> = {
   'phish:1999-12-31': [
     { id: 'eQzsso_ixbA', title: 'Full show — Big Cypress', note: 'Full-night fan upload' },
@@ -61,6 +59,8 @@ function VideoCard({ video }: { video: Video }) {
   );
 }
 
+type ApiVideo = { id: string; title: string; channel?: string };
+
 export default function VideoBlock({
   artistSlug,
   date,
@@ -70,20 +70,40 @@ export default function VideoBlock({
   date: string; // YYYY-MM-DD
   artistName: string;
 }) {
-  const videos = CURATED[`${artistSlug}:${date}`];
+  const [videos, setVideos] = useState<Video[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const curated = CURATED[`${artistSlug}:${date}`] ?? [];
+    const params = new URLSearchParams({ artistName, date });
+    fetch(`/api/show-videos?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : { videos: [] }))
+      .then((data) => {
+        if (!alive) return;
+        const seen = new Set(curated.map((v) => v.id));
+        const fromApi: Video[] = ((data.videos ?? []) as ApiVideo[])
+          .filter((v) => v?.id && !seen.has(v.id))
+          .map((v) => ({ id: v.id, title: v.title, note: v.channel }));
+        setVideos([...curated, ...fromApi].slice(0, 9));
+      })
+      .catch(() => {
+        if (alive) setVideos(curated);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [artistSlug, date, artistName]);
+
   if (!videos?.length) return null;
 
   return (
     <section className="mx-auto w-full max-w-2xl px-4 pt-8">
       <div className="mb-1 flex items-center gap-2">
         <h2 className="text-xl font-bold">Videos from this night</h2>
-        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
-          prototype
-        </span>
         <span className="ml-auto text-xs text-gray-400">via YouTube</span>
       </div>
       <p className="mb-4 text-sm text-gray-500">
-        Fan-shot footage of {artistName} on {date}, played right here.
+        Live footage of {artistName} on {date}, embedded from YouTube and played right here.
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {videos.map((v) => (
