@@ -50,6 +50,28 @@ async function ytSearch(apiKey: string, query: string): Promise<ShowVideo[]> {
     }));
 }
 
+/**
+ * Scan a title for numeric dates (M/D/YY, M/D/YYYY, …). Returns true if the
+ * show's date is mentioned, false if other dates are mentioned but not the
+ * show's, null if no dates are mentioned at all.
+ */
+function mentionsDate(t: string, tM: string, tD: string, tY: string): boolean | null {
+  const re = /\b(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})\b/g;
+  let found = false;
+  let hit = false;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t)) !== null) {
+    found = true;
+    const mo = m[1].padStart(2, '0');
+    const da = m[2].padStart(2, '0');
+    let yr = m[3];
+    if (yr.length === 2) yr = (Number(yr) > 30 ? '19' : '20') + yr;
+    if (mo === tM && da === tD && yr === tY) hit = true;
+  }
+  if (!found) return null;
+  return hit;
+}
+
 /** Light relevance pass: prefer date mentions + full shows, demote lessons/reviews. */
 function rankVideos(videos: ShowVideo[], artistName: string, date: string): ShowVideo[] {
   const [y, m, d] = date.split('-');
@@ -66,6 +88,10 @@ function rankVideos(videos: ShowVideo[], artistName: string, date: string): Show
     let score = 0;
     if (t.includes(artist)) score += 2;
     if (dateBits.some((b) => t.includes(b))) score += 4;
+    // If the title names a *different* date than the show, it's not this
+    // night — drop it outright.
+    const dateMatch = mentionsDate(t, m, d, y);
+    if (dateMatch === false) return { v, score: -100 };
     if (/full (show|concert|set)|complete (show|concert)/.test(t)) score += 3;
     if (/\blive\b/.test(t)) score += 1;
     if (/lesson|tutorial|how to play|cover|reaction|review|interview|podcast/.test(t)) score -= 6;
