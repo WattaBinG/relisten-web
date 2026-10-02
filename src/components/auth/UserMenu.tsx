@@ -100,7 +100,13 @@ export default function UserMenu() {
           role="menu"
           className="absolute top-[calc(100%+8px)] right-0 z-50 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
         >
-          <div className="flex items-center gap-2.5 px-4 pt-3 pb-2.5">
+          <Link
+            href="/account"
+            prefetch={false}
+            onClick={close}
+            title="Profile settings"
+            className="flex items-center gap-2.5 px-4 pt-3 pb-2.5 hover:bg-gray-50"
+          >
             {profile?.avatar_url ? (
               <img
                 src={profile.avatar_url}
@@ -114,9 +120,9 @@ export default function UserMenu() {
             )}
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-gray-900">{username}</div>
-              <div className="text-xs text-gray-400">Signed in</div>
+              <div className="text-xs text-gray-400">Signed in — view profile settings</div>
             </div>
-          </div>
+          </Link>
           <div className="border-t border-gray-100" />
           <div className="p-1.5">
             {MENU_ITEMS.map(({ href, label, Icon }) => (
