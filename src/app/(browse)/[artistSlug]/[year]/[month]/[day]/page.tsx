@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import CommunitySection from '@/components/community/CommunitySection';
 import VideoBlock from '@/components/community/VideoBlock';
 import ShowStoryButton from '@/components/community/ShowStoryButton';
+import PhishReviews from '@/components/community/PhishReviews';
 import type { Source } from '@/types';
 
 type Props = {
@@ -49,6 +50,11 @@ export default async function ShowDayPage({ params }: Props) {
         artistName={artistName}
         venueName={show.venue?.name ?? null}
       />
+      {artistSlug === 'phish' && (
+        <div className="mx-auto w-full max-w-2xl px-4">
+          <PhishReviews showDate={date} />
+        </div>
+      )}
       <VideoBlock artistSlug={artistSlug} date={date} artistName={artistName} />
     </div>
   );
