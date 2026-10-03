@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Plus, ListMusic, Clock } from 'lucide-react';
 import { useCloudAuth } from '@/lib/cloud/auth';
+import AiPlaylistBuilder from '@/components/playlists/AiPlaylistBuilder';
 import {
   useMyPlaylists,
   usePublicPlaylists,
@@ -85,6 +86,7 @@ export default function PlaylistsPage() {
         </p>
       ) : (
         <>
+          <AiPlaylistBuilder onSaved={refresh} />
           <div className="mb-6 flex gap-2">
             <input
               value={name}
