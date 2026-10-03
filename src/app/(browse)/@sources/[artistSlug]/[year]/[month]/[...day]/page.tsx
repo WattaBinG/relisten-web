@@ -1,5 +1,6 @@
 import TapesColumn from '@/components/TapesColumn';
 import ShowStoryButton from '@/components/community/ShowStoryButton';
+import PhishReviews from '@/components/community/PhishReviews';
 import { isMobile } from '@/lib/isMobile';
 import RelistenAPI from '@/lib/RelistenAPI';
 import { createShowDate } from '@/lib/utils';
@@ -48,6 +49,11 @@ export default async function SourcesDaySlot({
         </div>
       ) : null}
       <TapesColumn artistSlug={artistSlug} year={year} month={month} day={dayStr} show={show} />
+      {artistSlug === 'phish' ? (
+        <div className="px-2 pb-4">
+          <PhishReviews showDate={date} />
+        </div>
+      ) : null}
     </div>
   );
 }
