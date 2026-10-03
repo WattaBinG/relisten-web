@@ -1,61 +1,105 @@
 import NavBar from '@/components/NavBar';
 import RelistenAPI from '@/lib/RelistenAPI';
-import BandSearch, { type BandSearchItem } from '@/components/BandSearch';
-import HomeHero from '@/components/home/HomeHero';
-import BrandHero from '@/components/home/BrandHero';
-import TrendingRow, { type TrendingBand } from '@/components/home/TrendingRow';
-import BandBrowser from '@/components/home/BandBrowser';
-import FriendsActivity from '@/components/community/FriendsActivity';
-import BirthdaysToday from '@/components/home/BirthdaysToday';
+import { getCurrentMonthDay } from '@/lib/timezone';
+import { splitShowDate } from '@/lib/utils';
+import LiveTrack from '@/components/LiveTrack';
 import BirthdayTapePromo from '@/components/home/BirthdayTapePromo';
-import type { Artist } from '@/types';
+import ShowShelf from '@/components/home/ShowShelf';
+import ShowCard from '@/components/home/ShowCard';
+import type { Artist, Day, LiveHistoryItem, Show } from '@/types';
 
-/** Refresh at most hourly so "birthdays today" (and trending) stays current. */
+/** Refresh at most hourly so "shows on this day" stays current. */
 export const revalidate = 3600;
 
 const weeklyPlays = (artist: Artist) => artist.popularity?.windows?.['7d']?.plays ?? 0;
 
-const toSearchItem = (a: Artist): BandSearchItem | null =>
-  a.name && a.slug ? { name: a.name, slug: a.slug } : null;
+const showHref = (artistSlug: string, displayDate?: string | null) => {
+  const { year, month, day } = splitShowDate(displayDate ?? '');
+  return `/${artistSlug}/${year}/${month}/${day}`;
+};
 
 /**
- * Homepage: hero -> trending -> A-Z browse.
- * Lives at the root so it does NOT use the (browse) 5-column layout.
+ * Home: Continue listening -> Shows on this day -> Birthday Tape -> Trending shows.
  */
 export default async function HomePage() {
-  const artists = (await RelistenAPI.fetchArtists()).filter(
-    (artist) => Number(artist.featured) <= 1
-  );
+  const [artists, currentMonthDay, history]: [Artist[], { month: string; day: string }, LiveHistoryItem[]] =
+    await Promise.all([
+      RelistenAPI.fetchArtists().catch(() => []),
+      getCurrentMonthDay(),
+      RelistenAPI.fetchLiveHistory().catch(() => []),
+    ]);
 
-  const trending: TrendingBand[] = [...artists]
-    .map((artist) => ({ artist, plays: weeklyPlays(artist) }))
-    .sort((a, b) => b.plays - a.plays)
-    .slice(0, 10);
+  const trendingArtists = [...artists]
+    .sort((a, b) => weeklyPlays(b) - weeklyPlays(a))
+    .slice(0, 5);
 
-  const hero = trending[0] ?? null;
+  const [todayShows, trendingShows] = await Promise.all([
+    RelistenAPI.fetchTodayShows(currentMonthDay.month, currentMonthDay.day).catch((): Day[] => []),
+    Promise.all(
+      trendingArtists.map(async (artist) => {
+        const shows: Show[] = await RelistenAPI.fetchTopShows(artist.slug).catch(() => []);
+        return (shows ?? []).slice(0, 2).map((show) => ({
+          show,
+          artistSlug: artist.slug as string,
+          artistName: artist.name as string,
+        }));
+      })
+    ).then((groups) => groups.flat()),
+  ]);
 
-  const searchArtists: BandSearchItem[] = artists.flatMap((a) => {
-    const item = toSearchItem(a);
-    return item ? [item] : [];
-  });
+  const recentTracks = (history ?? []).slice(0, 10);
 
   return (
     <div className="min-h-screen">
       <NavBar />
-      <main className="mx-auto w-full max-w-6xl space-y-12 px-4 py-8">
-        <BrandHero />
-        {hero && <HomeHero artist={hero.artist} weeklyPlays={hero.plays} />}
+      <main className="mx-auto w-full max-w-6xl space-y-10 px-4 pt-8 pb-28">
+        <h1 className="text-2xl font-bold tracking-tight">Home</h1>
 
-        {/* Prominent search on smaller screens (the header carries it on desktop) */}
-        <div className="lg:hidden">
-          <BandSearch artists={searchArtists} variant="hero" />
-        </div>
+        {recentTracks.length > 0 && (
+          <ShowShelf title="Continue listening" actionHref="/recently-played">
+            {recentTracks.map((item) => (
+              <div key={item.id} className="w-64 shrink-0">
+                <LiveTrack {...item} />
+              </div>
+            ))}
+          </ShowShelf>
+        )}
 
-        <TrendingRow bands={trending} />
-        <FriendsActivity />
-        <BirthdaysToday />
-        <BirthdayTapePromo />
-        <BandBrowser artists={artists} />
+        {todayShows.length > 0 && (
+          <ShowShelf title="Shows on this day" actionHref="/today">
+            {todayShows.slice(0, 12).map((day) => (
+              <ShowCard
+                key={`${day.artist?.slug}-${day.display_date}`}
+                href={showHref(day.artist?.slug ?? '', day.display_date)}
+                dateLabel={day.display_date ?? ''}
+                venueName={day.venue?.name}
+                location={day.venue?.location}
+                artistName={day.artist?.name}
+              />
+            ))}
+          </ShowShelf>
+        )}
+
+        <section>
+          <h2 className="mb-3 text-xl font-bold tracking-tight">Your Birthday Tape</h2>
+          <BirthdayTapePromo />
+        </section>
+
+        {trendingShows.length > 0 && (
+          <ShowShelf title="Trending shows">
+            {trendingShows.map(({ show, artistSlug, artistName }) => (
+              <ShowCard
+                key={`${artistSlug}-${show.display_date}`}
+                href={showHref(artistSlug, show.display_date)}
+                dateLabel={show.display_date ?? ''}
+                venueName={show.venue?.name}
+                location={show.venue?.location}
+                artistName={artistName}
+                soundboard={!!show.has_soundboard_source}
+              />
+            ))}
+          </ShowShelf>
+        )}
       </main>
     </div>
   );
